@@ -14,6 +14,7 @@ members = [
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.17",
     "import-linter>=2.17",
     "pyright[nodejs]>=1.1.414",
     "pytest>=9.2.0",
@@ -43,13 +44,15 @@ select = [
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["engine/src", "starter_kit/src", "sandbox/src", "server/src", "tests"]
+include = ["engine/src", "engine/tests", "starter_kit/src", "sandbox/src", "server/src", "tests"]
+extraPaths = ["engine/tests"]
 strict = ["engine/src"]
 venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "engine/tests"]
+pythonpath = ["engine/tests"]
 addopts = ["--strict-config", "--strict-markers"]
 
 [tool.importlinter]

@@ -14,8 +14,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 
 | # | Phase | Status | Depends on | Key deliverable |
 |---|---|---|---|---|
-| 0 | [Setup & decisions](#phase-0--setup--decisions) | 🟨 | — | Repo skeleton, `make verify`, CI, ADRs |
-| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ⬜ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
+| 0 | [Setup & decisions](#phase-0--setup--decisions) | ✅ | — | Repo skeleton, `make verify`, CI, ADRs |
+| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | 🟨 | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
 | 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | ⬜ | 1 | Local runner, replay format v1, baseline bots, balance report |
 | 3 | [Sandbox](#phase-3--sandbox) | ⬜ | 2 | Jailed runner, adversarial suite passing |
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ⬜ | 3 | Upload pipeline, queue, workers, replay store |
@@ -136,7 +136,7 @@ Same format as before: context, decision, reasoning, **alternatives considered a
 **Deliverable:** a skeleton repo where `make verify` passes locally and in CI, with the ADRs written.
 
 **Exit criteria**
-- [ ] uv workspace and `web/` skeleton; `make verify` green locally and in GitHub Actions
+- [x] uv workspace and `web/` skeleton; `make verify` green locally and in GitHub Actions (PR #1, run 45704307785)
 - [x] Engine purity guardrails enforced, and `tests/test_guardrails.py` proves that `import time` and the other bans fail lint in `engine/`
 - [x] ADR-001 and ADR-003 to ADR-007 written; ADR-002 opened as *proposed*
 - [x] Free-tier terms for every candidate service checked and dated in ADR-005 (uptime monitoring and notebook GPUs deferred to Phases 10 and 11)
@@ -163,14 +163,16 @@ Same format as before: context, decision, reasoning, **alternatives considered a
 
 ### Engine API: the whole public surface
 ```python
-# engine/arena_engine/__init__.py
+# engine/src/arena_engine/__init__.py (orders, observations and events are seat-relative)
 ENGINE_VERSION: str
 
-def new_game(config: MatchConfig, seed: int) -> GameState: ...
-def observe(state: GameState, seat: Seat) -> Observation: ...        # fogged, seat-relative
-def step(state: GameState, orders: Mapping[Seat, Sequence[Order]]) -> StepResult: ...  # state + private events
+def new_game(rules: Rules, seed: int) -> GameState: ...
+def map_info(state: GameState, seat: int) -> MapInfo: ...             # public from turn 0
+def observe(state: GameState, seat: int) -> Observation: ...          # fogged
+def step(state: GameState, orders: Mapping[int, Sequence[Order]]) -> StepResult: ...  # state + private events
 def outcome(state: GameState) -> Outcome | None: ...                  # None while running
 def state_hash(state: GameState) -> str: ...                          # sha256 of a canonical encoding
+def parse_order(data: object) -> Order: ...                           # strict; reads untrusted JSON
 ```
 
 ### Tests: the engine's contract
@@ -199,12 +201,12 @@ def state_hash(state: GameState) -> str: ...                          # sha256 o
 **Deliverable:** `docs/GAME_RULES.md` v1 and an `engine/` package that satisfies all of the above.
 
 **Exit criteria**
-- [ ] `GAME_RULES.md` v1 written, with a worked example for every conflict case
-- [ ] Engine implements v1 behind the public API above, with zero dependencies
-- [ ] Rules tests for every conflict case
-- [ ] Determinism, seat-symmetry, fog and invariant property tests pass
+- [x] `GAME_RULES.md` v1 written, with a worked example for every conflict case
+- [x] Engine implements v1 behind the public API above, with zero dependencies
+- [x] Rules tests for every conflict case (`engine/tests/test_rules.py`)
+- [x] Determinism, seat-symmetry, fog and invariant property tests pass (maps also checked over 10,000 seeds)
 - [ ] Golden hashes are identical on CPython and Pyodide in CI
-- [ ] Engine benchmark recorded
+- [x] Engine benchmark recorded (`docs/benchmarks.md`)
 
 ---
 

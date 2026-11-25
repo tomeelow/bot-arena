@@ -61,3 +61,6 @@ extend = "../pyproject.toml"
 "random.betavariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
 "random.paretovariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
 "random.weibullvariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["TID251"]  # the bans guard engine code; its tests may use clocks and processes
