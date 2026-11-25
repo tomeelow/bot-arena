@@ -1,0 +1,62 @@
+[project]
+name = "bot-arena"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "engine",
+    "starter_kit",
+    "sandbox",
+    "server",
+]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.17",
+    "pyright[nodejs]>=1.1.414",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = ["web"]
+
+[tool.ruff.format]
+exclude = ["*.md"]  # docs hold hand-aligned sketches, not code we run
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "SIM",     # simplify
+    "RUF",     # ruff-specific
+    "TID",     # tidy imports; engine/pyproject.toml adds the banned-API list
+    "T20",     # print: platform code logs instead
+]
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["engine/src", "starter_kit/src", "sandbox/src", "server/src", "tests"]
+strict = ["engine/src"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-config", "--strict-markers"]
+
+[tool.importlinter]
+root_packages = ["arena_engine", "arena", "arena_sandbox", "arena_server"]
+
+[[tool.importlinter.contracts]]
+name = "The engine imports nothing else from this repo"
+type = "forbidden"
+source_modules = ["arena_engine"]
+forbidden_modules = ["arena", "arena_sandbox", "arena_server"]

@@ -1,0 +1,63 @@
+[project]
+name = "arena-engine"
+version = "0.1.0"
+description = "Deterministic Bot Arena game engine. Pure Python, no dependencies: runs on CPython and Pyodide."
+authors = [
+    { name = "Ivan Tomilo", email = "153078768+tomeelow@users.noreply.github.com" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.11.20,<0.12.0"]
+build-backend = "uv_build"
+
+# The engine must be pure: same seed + same orders = same match on every runtime.
+# These bans make clocks, I/O, concurrency and unseeded randomness lint errors here.
+[tool.ruff]
+extend = "../pyproject.toml"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"time".msg = "The engine is pure: no clocks."
+"datetime".msg = "The engine is pure: no clocks."
+"os".msg = "The engine is pure: no environment or filesystem access."
+"sys".msg = "The engine is pure: no interpreter or I/O access."
+"io".msg = "The engine is pure: no I/O."
+"pathlib".msg = "The engine is pure: no I/O."
+"shutil".msg = "The engine is pure: no I/O."
+"tempfile".msg = "The engine is pure: no I/O."
+"socket".msg = "The engine is pure: no network."
+"urllib".msg = "The engine is pure: no network."
+"http".msg = "The engine is pure: no network."
+"subprocess".msg = "The engine is pure: no processes."
+"threading".msg = "The engine is pure: no concurrency."
+"multiprocessing".msg = "The engine is pure: no concurrency."
+"concurrent".msg = "The engine is pure: no concurrency."
+"asyncio".msg = "The engine is pure: no concurrency."
+"secrets".msg = "Unseeded randomness. Use the random.Random(seed) instance passed in."
+"uuid".msg = "Unseeded randomness. Use the random.Random(seed) instance passed in."
+"random.SystemRandom".msg = "Unseeded randomness. Use the random.Random(seed) instance passed in."
+"random.seed".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.getstate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.setstate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.random".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.randint".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.randrange".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.randbytes".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.getrandbits".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.choice".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.choices".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.shuffle".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.sample".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.uniform".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.binomialvariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.triangular".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.gauss".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.normalvariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.lognormvariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.expovariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.vonmisesvariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.gammavariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.betavariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.paretovariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."
+"random.weibullvariate".msg = "Module-level random state. Use the random.Random(seed) instance passed in."

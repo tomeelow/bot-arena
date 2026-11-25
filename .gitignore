@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# Secrets
+.env
+
+# Never committed: user data, replays, databases, model weights (see CLAUDE.md)
+*.db
+*.db-*
+*.sqlite*
+replays/
+uploads/
+live/
+*.npz
+*.pt
+
+# OS
+.DS_Store

@@ -14,7 +14,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 
 | # | Phase | Status | Depends on | Key deliverable |
 |---|---|---|---|---|
-| 0 | [Setup & decisions](#phase-0--setup--decisions) | ⬜ | — | Repo skeleton, `make verify`, CI, ADRs |
+| 0 | [Setup & decisions](#phase-0--setup--decisions) | 🟨 | — | Repo skeleton, `make verify`, CI, ADRs |
 | 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ⬜ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
 | 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | ⬜ | 1 | Local runner, replay format v1, baseline bots, balance report |
 | 3 | [Sandbox](#phase-3--sandbox) | ⬜ | 2 | Jailed runner, adversarial suite passing |
@@ -104,21 +104,22 @@ bot-arena/
 
 ### Tooling
 ```bash
-uv init --bare                          # workspace root
-uv init --lib engine                    # zero runtime dependencies, keep it that way
-uv init --lib starter_kit
-uv init --lib sandbox
-uv init --package server
-uv add --package server fastapi "uvicorn[standard]" openskill pydantic
-uv add --dev ruff pyright pytest hypothesis import-linter
+uv init --bare --name bot-arena --python 3.14         # 3.14 = what Pyodide 314.x ships (ADR-001)
+uv init --lib --name arena-engine engine              # zero runtime dependencies, keep it that way
+uv init --lib --name arena-starter-kit starter_kit    # imported as `arena`
+uv init --lib --name arena-sandbox sandbox
+uv init --lib --name arena-server server
+uv add --dev ruff "pyright[nodejs]" pytest import-linter
 ```
+Each dependency is added in the phase that first uses it (hypothesis in Phase 1; FastAPI and openskill in Phases 5–6), not all up front.
+
 Frontend: SvelteKit with the static adapter, in `web/` (ADR-006).
 
 `make verify` runs `ruff check`, `ruff format --check`, `pyright`, `lint-imports`, `pytest`, plus `npm run check` and `npm test` in `web/`. Once the skeleton exists, run `/harden-repo` to tighten it.
 
 ### Guardrails as code, from day one
-- **Engine purity:** ruff `banned-api` in `engine/` bans `time`, `datetime.datetime.now`, `os`, `socket`, `threading`, and the module-level `random` functions. A deliberate `import time` in the engine has to fail CI.
-- **Import contracts (import-linter):** `arena_engine` imports nothing from the rest of the repo. `server` never imports `rl`. `sandbox` host code never imports bot code.
+- **Engine purity:** ruff `banned-api` in `engine/pyproject.toml` bans clocks, I/O, network, concurrency and the module-level `random` functions. Ruff can't see builtins, so an AST test bans `hash()`, `id()`, `open()` and `input()`. `tests/test_guardrails.py` proves the bans fire, so loosening them breaks the build.
+- **Import contracts (import-linter):** `arena_engine` imports nothing from the rest of the repo. More contracts are added once the packages they guard exist: `server` never imports `rl` (Phase 11), and `sandbox` host code never imports bot code (Phase 3).
 - `.gitignore` covers `*.db`, `replays/`, `uploads/`, `*.npz`, `.env`.
 
 ### Architecture Decision Records (`docs/ADR.md`)
@@ -136,10 +137,10 @@ Same format as before: context, decision, reasoning, **alternatives considered a
 
 **Exit criteria**
 - [ ] uv workspace and `web/` skeleton; `make verify` green locally and in GitHub Actions
-- [ ] Engine purity guardrails enforced: an `import time` in `engine/` fails CI (checked once, then reverted)
-- [ ] ADR-001 and ADR-003 to ADR-007 written; ADR-002 opened as *proposed*
-- [ ] Free-tier terms for every candidate service checked and dated in ADR-005
-- [ ] `.env.example` and `.gitignore` in place
+- [x] Engine purity guardrails enforced, and `tests/test_guardrails.py` proves that `import time` and the other bans fail lint in `engine/`
+- [x] ADR-001 and ADR-003 to ADR-007 written; ADR-002 opened as *proposed*
+- [x] Free-tier terms for every candidate service checked and dated in ADR-005 (uptime monitoring and notebook GPUs deferred to Phases 10 and 11)
+- [x] `.env.example` and `.gitignore` in place
 
 ---
 
@@ -306,7 +307,7 @@ Plus a `noisy(bot, ε)` wrapper that replaces each order with a random legal one
 | Attack spectators | HTML or JS in bot names or logs | Phase 7: render as text, strict CSP |
 
 ### Spike → ADR-002
-Build the smallest possible runner for each candidate and measure it **on the target VM architecture** (ARM64 if the host turns out to be ARM):
+Build the smallest possible runner for each candidate and measure it **on the target VM**: ARM64 with 2 OCPUs and 12 GB (ADR-005). Per-bot overhead comes straight out of match throughput on a machine that small.
 
 | Candidate | Isolation layers | Same runtime as browser practice? |
 |---|---|---|
@@ -598,7 +599,7 @@ cpu_seconds_per_match  = measured in Phase 3
 worker_cores           = cores − 1
 max_matches_per_day    = worker_cores × 86_400 × target_utilisation / cpu_seconds_per_match
 ```
-That number becomes the daily match cap in `config/ladder.toml`. The matchmaker spends it on the most informative pairings first (highest σ).
+On today's Always Free shape (2 OCPUs, ADR-005), `worker_cores` is 1. That number becomes the daily match cap in `config/ladder.toml`. The matchmaker spends it on the most informative pairings first (highest σ).
 
 ### Budget guards
 A daily match cap · ranked replays kept, the frame cache evicted LRU, logs expired after N days · a disk-usage alarm · upload, compare and viewer caps · a **kill switch** that pauses the ladder by stopping the scheduler without losing queued matches.
