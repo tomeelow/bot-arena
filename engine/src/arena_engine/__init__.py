@@ -3,7 +3,14 @@
 The whole public surface is re-exported here. Rules: docs/GAME_RULES.md.
 """
 
-from .encoding import OrderFormatError, order_to_plain, parse_order, state_hash, to_plain
+from .encoding import (
+    OrderFormatError,
+    event_to_plain,
+    order_to_plain,
+    parse_order,
+    state_hash,
+    to_plain,
+)
 from .fog import map_info, observe, visible_cells
 from .mapgen import new_game
 from .model import (
@@ -37,7 +44,7 @@ from .model import (
 )
 from .rules import score, step
 
-ENGINE_VERSION = "0.1.0"
+ENGINE_VERSION = "1.0.0"
 
 
 def outcome(state: GameState) -> Outcome | None:
@@ -75,6 +82,7 @@ __all__ = [
     "UnitLost",
     "UnitStats",
     "Unload",
+    "event_to_plain",
     "map_info",
     "new_game",
     "observe",

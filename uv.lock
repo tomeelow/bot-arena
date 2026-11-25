@@ -13,7 +13,7 @@ members = [
 
 [[package]]
 name = "arena-engine"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "engine" }
 
 [[package]]
@@ -30,6 +30,12 @@ source = { editable = "server" }
 name = "arena-starter-kit"
 version = "0.1.0"
 source = { editable = "starter_kit" }
+dependencies = [
+    { name = "arena-engine" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "arena-engine", editable = "engine" }]
 
 [[package]]
 name = "bot-arena"

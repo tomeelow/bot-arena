@@ -15,8 +15,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | # | Phase | Status | Depends on | Key deliverable |
 |---|---|---|---|---|
 | 0 | [Setup & decisions](#phase-0--setup--decisions) | ✅ | — | Repo skeleton, `make verify`, CI, ADRs |
-| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | 🟨 | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
-| 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | ⬜ | 1 | Local runner, replay format v1, baseline bots, balance report |
+| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ✅ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
+| 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | 🟨 | 1 | Local runner, replay format v1, baseline bots, balance report |
 | 3 | [Sandbox](#phase-3--sandbox) | ⬜ | 2 | Jailed runner, adversarial suite passing |
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ⬜ | 3 | Upload pipeline, queue, workers, replay store |
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | ⬜ | 4 | Rating service, matchmaker, synthetic-ladder validation |
@@ -87,8 +87,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 ```
 bot-arena/
 ├── engine/                 # pure-Python game engine, zero dependencies; runs on CPython and Pyodide
-├── starter_kit/            # what players download: bot API, example bot, `arena` CLI
-├── bots/                   # built-in reference bots (scripted baselines; boss bundle later)
+├── starter_kit/            # what players download: bot API, built-in bots, example bot, `arena` CLI
 ├── sandbox/                # in-jail harness, host-side runner, jail config, adversarial/ bots
 ├── server/                 # FastAPI app, queue, workers, scheduler, ratings, websocket fan-out
 ├── rl/                     # offline self-play training; never deployed
@@ -205,7 +204,7 @@ def parse_order(data: object) -> Order: ...                           # strict; 
 - [x] Engine implements v1 behind the public API above, with zero dependencies
 - [x] Rules tests for every conflict case (`engine/tests/test_rules.py`)
 - [x] Determinism, seat-symmetry, fog and invariant property tests pass (maps also checked over 10,000 seeds)
-- [ ] Golden hashes are identical on CPython and Pyodide in CI
+- [x] Golden hashes are identical on CPython and Pyodide in CI (PR #2, run 45708699814)
 - [x] Engine benchmark recorded (`docs/benchmarks.md`)
 
 ---
@@ -285,12 +284,12 @@ Plus a `noisy(bot, ε)` wrapper that replaces each order with a random legal one
 **Deliverable:** `starter_kit/` with the `arena` CLI, five built-in bots, replay format v1, and a balance report. The rules are then frozen as engine `1.0.0`.
 
 **Exit criteria**
-- [ ] Bot API, harness and JSON protocol, with strict host-side parsing (schema, size, turn number)
-- [ ] `arena match / show / tournament` CLI
-- [ ] Replay format v1; loading re-simulates and verifies the hash
-- [ ] Five built-in bots and the `noisy()` wrapper
-- [ ] Balance report: the seat-advantage CI covers 50%, and no built-in dominates
-- [ ] Rules frozen as engine `1.0.0`
+- [x] Bot API, harness and JSON protocol, with strict host-side parsing (schema, size, turn number)
+- [x] `arena match / show / tournament` CLI
+- [x] Replay format v1; loading re-simulates and verifies the hash
+- [x] Five built-in bots and the `noisy()` wrapper (`builtin:NAME~EPS`); they send no invalid orders
+- [x] Balance report: the seat-advantage CI covers 50%, and no built-in dominates (`docs/balance.md`; turtle vs rush is even, so the intended cycle is incomplete)
+- [x] Rules frozen as engine `1.0.0` (2026-11-25)
 - [ ] Someone other than the author wrote a working bot from the starter-kit README alone (record how long it took)
 
 ---

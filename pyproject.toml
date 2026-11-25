@@ -42,16 +42,19 @@ select = [
     "T20",     # print: platform code logs instead
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"starter_kit/src/arena/cli.py" = ["T201"]  # the CLI's output is its interface, not logging
+
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["engine/src", "engine/tests", "starter_kit/src", "sandbox/src", "server/src", "tests"]
+include = ["engine/src", "engine/tests", "starter_kit/src", "starter_kit/tests", "sandbox/src", "server/src", "scripts", "tests"]
 extraPaths = ["engine/tests"]
 strict = ["engine/src"]
 venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "engine/tests"]
+testpaths = ["tests", "engine/tests", "starter_kit/tests"]
 pythonpath = ["engine/tests"]
 addopts = ["--strict-config", "--strict-markers"]
 
@@ -63,3 +66,9 @@ name = "The engine imports nothing else from this repo"
 type = "forbidden"
 source_modules = ["arena_engine"]
 forbidden_modules = ["arena", "arena_sandbox", "arena_server"]
+
+[[tool.importlinter.contracts]]
+name = "The starter kit ships to players, so it never imports platform code"
+type = "forbidden"
+source_modules = ["arena"]
+forbidden_modules = ["arena_sandbox", "arena_server"]

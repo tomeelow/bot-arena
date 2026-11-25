@@ -1,0 +1,12 @@
+# Bot limits. Ranked matches will enforce them (Phase 3). The local runner only warns,
+# except for `local_backstop_ms`, which stops a bot that hangs.
+
+init_ms = 2000                   # setup() budget
+turn_ms = 100                    # per-turn thinking budget
+time_bank_ms = 10000             # overruns draw from the bank; an empty bank loses on time
+turn_backstop_ms = 2000          # ranked: no reply by then and the bot is killed
+local_backstop_ms = 10000        # local runner: generous, only there to stop a hung bot
+reply_max_bytes = 65536          # one reply line
+max_orders = 100                 # orders in one reply
+log_max_bytes_per_turn = 2048
+log_max_bytes_per_match = 262144

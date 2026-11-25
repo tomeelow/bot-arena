@@ -11,7 +11,21 @@ from dataclasses import fields, is_dataclass
 from enum import StrEnum
 from typing import cast
 
-from .model import Attack, Dir, GameState, Kind, Mine, Move, Order, Spawn, Unload
+from .model import (
+    Attack,
+    Dir,
+    Event,
+    GameState,
+    InvalidOrder,
+    Kind,
+    Mine,
+    Move,
+    Order,
+    Spawn,
+    SpawnBlocked,
+    UnitLost,
+    Unload,
+)
 
 type Plain = bool | int | str | list[Plain] | dict[str, Plain] | None
 
@@ -67,6 +81,17 @@ def order_to_plain(order: Order) -> dict[str, Plain]:
             return {"type": "unload", "unit": unit}
         case Spawn(kind, d):
             return {"type": "spawn", "kind": kind.value, "dir": d.value}
+
+
+def event_to_plain(event: Event) -> dict[str, Plain]:
+    """Events carry a type tag, since a bot receives a mixed list of them."""
+    match event:
+        case InvalidOrder(order, reason):
+            return {"type": "invalid_order", "order": order_to_plain(order), "reason": reason}
+        case SpawnBlocked(kind, pos):
+            return {"type": "spawn_blocked", "kind": kind.value, "pos": [pos.x, pos.y]}
+        case UnitLost(unit, pos):
+            return {"type": "unit_lost", "unit": unit, "pos": [pos.x, pos.y]}
 
 
 def parse_order(data: object) -> Order:
