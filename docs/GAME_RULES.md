@@ -1,6 +1,6 @@
-# Game Rules — v1 (draft)
+# Game Rules — v1
 
-**Engine version:** 0.1.0 · **Status:** draft. The numbers can be tuned until the Phase 2 balance report. After that the rules are frozen as engine `1.0.0`, and later changes bump the engine version and start a new ladder season.
+**Engine version:** 1.0.0 · **Status:** frozen on 2026-11-25, after the Phase 2 [balance report](balance.md). Any change from here bumps the engine version, and an incompatible one starts a new ladder season. See CLAUDE.md, "Ask before acting".
 
 This document is the specification. `engine/` implements it, and `engine/tests/test_rules.py` contains a test for every worked example below. If this document and the engine disagree, that's a bug in one of them, and it has to be decided which.
 

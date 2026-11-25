@@ -1,12 +1,18 @@
 [project]
 name = "arena-starter-kit"
 version = "0.1.0"
-description = "What Bot Arena players install: the bot API, an example bot and the `arena` CLI."
+description = "What Bot Arena players install: the bot API, the built-in bots and the `arena` CLI."
 authors = [
     { name = "Ivan Tomilo", email = "153078768+tomeelow@users.noreply.github.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["arena-engine"]
+
+[project.scripts]
+arena = "arena.cli:main"
+
+[tool.uv.sources]
+arena-engine = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.11.20,<0.12.0"]

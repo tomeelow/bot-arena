@@ -1,6 +1,6 @@
 [project]
 name = "arena-engine"
-version = "0.1.0"
+version = "1.0.0"
 description = "Deterministic Bot Arena game engine. Pure Python, no dependencies: runs on CPython and Pyodide."
 authors = [
     { name = "Ivan Tomilo", email = "153078768+tomeelow@users.noreply.github.com" }
