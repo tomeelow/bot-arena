@@ -14,8 +14,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 
 | # | Phase | Status | Depends on | Key deliverable |
 |---|---|---|---|---|
-| 0 | [Setup & decisions](#phase-0--setup--decisions) | 🟨 | — | Repo skeleton, `make verify`, CI, ADRs |
-| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ⬜ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
+| 0 | [Setup & decisions](#phase-0--setup--decisions) | ✅ | — | Repo skeleton, `make verify`, CI, ADRs |
+| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | 🟨 | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
 | 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | ⬜ | 1 | Local runner, replay format v1, baseline bots, balance report |
 | 3 | [Sandbox](#phase-3--sandbox) | ⬜ | 2 | Jailed runner, adversarial suite passing |
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ⬜ | 3 | Upload pipeline, queue, workers, replay store |
@@ -136,7 +136,7 @@ Same format as before: context, decision, reasoning, **alternatives considered a
 **Deliverable:** a skeleton repo where `make verify` passes locally and in CI, with the ADRs written.
 
 **Exit criteria**
-- [ ] uv workspace and `web/` skeleton; `make verify` green locally and in GitHub Actions
+- [x] uv workspace and `web/` skeleton; `make verify` green locally and in GitHub Actions (PR #1, run 45704307785)
 - [x] Engine purity guardrails enforced, and `tests/test_guardrails.py` proves that `import time` and the other bans fail lint in `engine/`
 - [x] ADR-001 and ADR-003 to ADR-007 written; ADR-002 opened as *proposed*
 - [x] Free-tier terms for every candidate service checked and dated in ADR-005 (uptime monitoring and notebook GPUs deferred to Phases 10 and 11)
