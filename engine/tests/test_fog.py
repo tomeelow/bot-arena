@@ -7,7 +7,7 @@ observations. Any new Observation field needs coverage here.
 from dataclasses import fields, replace
 
 from engine_support import RandomBot, play
-from hypothesis import assume, given, settings
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from arena_engine import (
@@ -33,8 +33,7 @@ def midgame(draw: st.DrawFn) -> tuple[GameState, int]:
     return game.states[-1], draw(st.integers(min_value=0, max_value=1))
 
 
-def hidden_free_cells(state: GameState, seat: int) -> list[Pos]:
-    seen = visible_cells(state, seat)
+def free_cells(state: GameState) -> list[Pos]:
     taken = (
         set(state.walls)
         | {d.pos for d in state.deposits}
@@ -45,8 +44,13 @@ def hidden_free_cells(state: GameState, seat: int) -> list[Pos]:
         p
         for y in range(state.rules.height)
         for x in range(state.rules.width)
-        if (p := Pos(x, y)) not in seen and p not in taken
+        if (p := Pos(x, y)) not in taken
     ]
+
+
+def hidden_free_cells(state: GameState, seat: int) -> list[Pos]:
+    seen = visible_cells(state, seat)
+    return [p for p in free_cells(state) if p not in seen]
 
 
 @st.composite
@@ -109,15 +113,23 @@ def test_changes_out_of_sight_do_not_change_the_observation(data):
 @settings(max_examples=20, deadline=None)
 @given(st.data())
 def test_changes_in_sight_do_change_the_observation(data):
-    """The control: proves the test above could catch a leak."""
+    """The control: proves the test above could catch a leak. An enemy is placed in sight
+    rather than waited for, because random games often have none."""
     state, seat = data.draw(midgame())
     seen = visible_cells(state, seat)
-    visible_enemies = [u for u in state.units if u.seat != seat and u.pos in seen]
-    assume(visible_enemies)
-    target = data.draw(st.sampled_from(visible_enemies))
-    hurt = replace(target, hp=target.hp - 1 if target.hp > 1 else target.hp + 1)
-    changed = replace(state, units=tuple(hurt if u is target else u for u in state.units))
-    assert observe(changed, seat) != observe(state, seat)
+    spots = [p for p in free_cells(state) if p in seen]
+    assert spots, "a seat always sees free cells around its own Core"
+    kind = data.draw(st.sampled_from(list(Kind)))
+    intruder = Unit(1 - seat, 900, kind, data.draw(st.sampled_from(spots)), UNIT_STATS[kind].hp)
+
+    def with_units(*extra: Unit) -> GameState:
+        units = sorted([*state.units, *extra], key=lambda u: (u.seat, u.id))
+        return replace(state, units=tuple(units))
+
+    arrived = with_units(intruder)
+    hurt = with_units(replace(intruder, hp=intruder.hp - 1))
+    assert observe(arrived, seat) != observe(state, seat)
+    assert observe(hurt, seat) != observe(arrived, seat)
 
 
 def test_observation_fields_are_the_reviewed_set():
