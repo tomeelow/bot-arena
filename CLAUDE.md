@@ -54,7 +54,7 @@ The phased plan, with status and exit criteria, is in `docs/implementation_plan.
 - **Python:** type hints on public functions; `ruff` for lint, `ruff format` for formatting; `pyright` for type checking; `pytest` and `hypothesis` for tests.
 - **TypeScript (frontend):** strict mode; `tsc --noEmit` is part of `make verify`.
 - **Dependencies:** pin them. Python uses a `uv` workspace; the frontend uses npm with a committed lockfile. The engine has **zero** runtime dependencies so it loads instantly in Pyodide and in the sandbox.
-- **Python version:** the engine and starter kit target the Python version that ships with the pinned Pyodide release. Bumping Pyodide is a deliberate change of its own.
+- **Python version:** the engine and starter kit target the Python version that ships with the pinned Pyodide release (currently Python 3.14 / Pyodide 314.x, ADR-001). Bumping Pyodide is a deliberate change of its own.
 - **Configuration:** environment variables for secrets; TOML in `config/` for limits, ladder parameters, matchmaker weights and caps. No hardcoded limits, paths, endpoints or magic numbers.
 - **Logging over print** in platform code. Log match ids, bot version ids, end reasons and durations. Never log bot source code or full observations.
 - **Rules become checks.** Engine purity is enforced by ruff's banned-API list and import-linter contracts, not by remembering. If a rule here can become a lint rule, type or test, make it one.
