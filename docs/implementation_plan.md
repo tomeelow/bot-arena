@@ -15,8 +15,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | # | Phase | Status | Depends on | Key deliverable |
 |---|---|---|---|---|
 | 0 | [Setup & decisions](#phase-0--setup--decisions) | ✅ | — | Repo skeleton, `make verify`, CI, ADRs |
-| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | 🟨 | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
-| 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | ⬜ | 1 | Local runner, replay format v1, baseline bots, balance report |
+| 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ✅ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
+| 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | 🟨 | 1 | Local runner, replay format v1, baseline bots, balance report |
 | 3 | [Sandbox](#phase-3--sandbox) | ⬜ | 2 | Jailed runner, adversarial suite passing |
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ⬜ | 3 | Upload pipeline, queue, workers, replay store |
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | ⬜ | 4 | Rating service, matchmaker, synthetic-ladder validation |
@@ -205,7 +205,7 @@ def parse_order(data: object) -> Order: ...                           # strict; 
 - [x] Engine implements v1 behind the public API above, with zero dependencies
 - [x] Rules tests for every conflict case (`engine/tests/test_rules.py`)
 - [x] Determinism, seat-symmetry, fog and invariant property tests pass (maps also checked over 10,000 seeds)
-- [ ] Golden hashes are identical on CPython and Pyodide in CI
+- [x] Golden hashes are identical on CPython and Pyodide in CI (PR #2, run 45708699814)
 - [x] Engine benchmark recorded (`docs/benchmarks.md`)
 
 ---
