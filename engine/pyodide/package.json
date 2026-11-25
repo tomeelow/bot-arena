@@ -1,0 +1,14 @@
+{
+	"name": "arena-engine-pyodide-check",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"check": "node check_golden.mjs"
+	},
+	"devDependencies": {
+		"pyodide": "314.0.8"
+	}
+}

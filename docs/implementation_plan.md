@@ -163,14 +163,16 @@ Same format as before: context, decision, reasoning, **alternatives considered a
 
 ### Engine API: the whole public surface
 ```python
-# engine/arena_engine/__init__.py
+# engine/src/arena_engine/__init__.py (orders, observations and events are seat-relative)
 ENGINE_VERSION: str
 
-def new_game(config: MatchConfig, seed: int) -> GameState: ...
-def observe(state: GameState, seat: Seat) -> Observation: ...        # fogged, seat-relative
-def step(state: GameState, orders: Mapping[Seat, Sequence[Order]]) -> StepResult: ...  # state + private events
+def new_game(rules: Rules, seed: int) -> GameState: ...
+def map_info(state: GameState, seat: int) -> MapInfo: ...             # public from turn 0
+def observe(state: GameState, seat: int) -> Observation: ...          # fogged
+def step(state: GameState, orders: Mapping[int, Sequence[Order]]) -> StepResult: ...  # state + private events
 def outcome(state: GameState) -> Outcome | None: ...                  # None while running
 def state_hash(state: GameState) -> str: ...                          # sha256 of a canonical encoding
+def parse_order(data: object) -> Order: ...                           # strict; reads untrusted JSON
 ```
 
 ### Tests: the engine's contract
@@ -199,12 +201,12 @@ def state_hash(state: GameState) -> str: ...                          # sha256 o
 **Deliverable:** `docs/GAME_RULES.md` v1 and an `engine/` package that satisfies all of the above.
 
 **Exit criteria**
-- [ ] `GAME_RULES.md` v1 written, with a worked example for every conflict case
-- [ ] Engine implements v1 behind the public API above, with zero dependencies
-- [ ] Rules tests for every conflict case
-- [ ] Determinism, seat-symmetry, fog and invariant property tests pass
+- [x] `GAME_RULES.md` v1 written, with a worked example for every conflict case
+- [x] Engine implements v1 behind the public API above, with zero dependencies
+- [x] Rules tests for every conflict case (`engine/tests/test_rules.py`)
+- [x] Determinism, seat-symmetry, fog and invariant property tests pass (maps also checked over 10,000 seeds)
 - [ ] Golden hashes are identical on CPython and Pyodide in CI
-- [ ] Engine benchmark recorded
+- [x] Engine benchmark recorded (`docs/benchmarks.md`)
 
 ---
 

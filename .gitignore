@@ -6,6 +6,9 @@ __pycache__/
 .ruff_cache/
 dist/
 
+# Node
+node_modules/
+
 # Secrets
 .env
 

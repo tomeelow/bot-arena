@@ -80,7 +80,7 @@ Everything that comes from a bot is hostile: its code, its output, its timing an
 - **The engine is pure.** No I/O, no clock, no environment reads, no global state, no threads. Lint and import contracts enforce this.
 - **One RNG.** A `random.Random(seed)` instance passed explicitly. Never the module-level `random` functions.
 - **Integer arithmetic only** in game rules. No floats in game state.
-- **No hash-order dependence.** Never iterate a `set` (or anything ordered by `hash()` of a str) in rule logic. Sort it or keep insertion order. `PYTHONHASHSEED` must not be able to change a match.
+- **No hash-order dependence.** Sets are for membership checks only; never iterate one in rule logic, sort it first. That includes sets of ints and tuples: `PYTHONHASHSEED` changes str hashes, and hash width differs between 64-bit CPython and 32-bit Pyodide, so set order can differ between the two. The golden replays in `engine/tests/golden/` check both runtimes.
 - **Seat order never matters.** Simultaneous resolution never depends on the seat index. A contested outcome gets a symmetric rule (split it, or nobody gets it), never "player 0 first".
 - **Replays store orders, not bot code.** Seed + config + per-turn orders is the canonical replay. Viewer frames are derived from it by the engine.
 - **Every replay is re-simulated before its result is rated.** A hash mismatch voids the match and is treated as a bug.
