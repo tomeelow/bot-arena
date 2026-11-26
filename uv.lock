@@ -20,6 +20,12 @@ source = { editable = "engine" }
 name = "arena-sandbox"
 version = "0.1.0"
 source = { editable = "sandbox" }
+dependencies = [
+    { name = "arena-starter-kit" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "arena-starter-kit", editable = "starter_kit" }]
 
 [[package]]
 name = "arena-server"

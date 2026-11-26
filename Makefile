@@ -1,11 +1,11 @@
-.PHONY: install verify lint typecheck test pyodide-check web-check format
+.PHONY: install verify lint typecheck test pyodide-check sandbox-check web-check format
 
 install:  ## Install Python and web dependencies exactly as locked
 	uv sync --all-packages --locked
 	npm ci --prefix engine/pyodide
 	npm ci --prefix web
 
-verify: lint typecheck test pyodide-check web-check  ## Everything CI runs; must pass before work is called done
+verify: lint typecheck test pyodide-check sandbox-check web-check  ## Everything CI runs; must pass before work is called done
 
 lint:
 	uv run ruff check .
@@ -20,6 +20,11 @@ test:
 
 pyodide-check:  ## The golden games must replay to the same hashes inside Pyodide
 	npm run check --prefix engine/pyodide
+
+sandbox-check:  ## The ranked jail and its adversarial suite, in Linux (needs Docker running)
+	@docker info >/dev/null 2>&1 || { echo "sandbox-check needs Docker running"; exit 1; }
+	docker build -q -f sandbox/Dockerfile -t arena-sandbox .
+	docker run --rm --privileged arena-sandbox pytest -q sandbox/tests
 
 web-check:
 	npm run check --prefix web

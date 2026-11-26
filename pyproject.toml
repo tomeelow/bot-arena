@@ -44,6 +44,7 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "starter_kit/src/arena/cli.py" = ["T201"]  # the CLI's output is its interface, not logging
+"sandbox/adversarial/*" = ["T201"]  # bot code: print is how a bot writes its log
 
 [tool.pyright]
 pythonVersion = "3.14"

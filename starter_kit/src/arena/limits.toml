@@ -10,3 +10,8 @@ reply_max_bytes = 65536          # one reply line
 max_orders = 100                 # orders in one reply
 log_max_bytes_per_turn = 2048
 log_max_bytes_per_match = 262144
+
+# The ranked jail (sandbox/): what one bot process may use.
+memory_mb = 256                  # RAM including /tmp; over it the bot is killed and loses
+max_tasks = 16                   # processes plus threads
+tmp_mb = 16                      # size of the bot's private /tmp

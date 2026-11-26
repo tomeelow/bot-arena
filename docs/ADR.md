@@ -38,29 +38,57 @@ If RL training (Phase 11) is limited by engine speed even after profiling, a bat
 
 ---
 
-## ADR-002 — Sandbox runtime for ranked matches
+## ADR-002 — CPython in bubblewrap, behind seccomp and cgroups, for ranked matches
 
-**Status:** proposed, to be decided by the Phase 3 spike · **Date:** 2026-11-25
+**Status:** accepted · **Date:** 2026-11-26 · **Spike:** Linux arm64, Docker Desktop on Apple M5
 
 ### Context
 
 Ranked matches run strangers' Python on our only server. The sandbox must contain CPU, memory, processes, filesystem and network. It must let the host measure each bot's CPU time per turn. And ideally a bot should behave on the server exactly as it does in browser practice.
 
-ADR-005 makes the target concrete: probably an ARM64 VM with **2 OCPUs and 12 GB of RAM**. Every millisecond and megabyte of per-bot overhead comes straight out of match throughput.
+ADR-005 makes the target concrete: an ARM64 VM with **2 OCPUs and 12 GB of RAM**, which leaves one core for matches. Every millisecond and megabyte of per-bot overhead comes straight out of match throughput.
 
-### Options
+### Measurements
 
-| Candidate | Isolation layers | Same runtime as browser practice? |
-|---|---|---|
-| A. Pyodide in Deno (no permissions beyond reading the Pyodide distribution) inside an OS jail | WASM + runtime permissions + OS | Yes |
-| B. CPython in nsjail or bubblewrap, with seccomp and cgroups | OS | No |
-| C. CPython in Docker with gVisor (`runsc`), `--network none`, read-only root | User-space kernel | No |
+The spike drove each candidate through the real `ProcessChannel` and harness, running a bot that holds still (start-up and protocol overhead) and a bot that does 14 full-map BFS runs per turn (Python speed).
 
-Whichever candidate wins, the **OS layer is mandatory**: namespaces with no network, cgroup v2 CPU/memory/pids limits, a read-only filesystem plus a capped tmpfs, an empty environment, a non-root user. Pyodide on its own is not a sandbox, because `import js` reaches the host JS runtime.
+| Candidate | Cold start | Overhead per turn | Peak memory per bot | Python speed |
+|---|---|---|---|---|
+| B. CPython in bubblewrap | **23 ms** | 0.04 ms | **20 MiB** | **13.5 ms/turn** |
+| A. Pyodide 314.0.8 in Deno, in bubblewrap | 942 ms | 0.09 ms | 218 MiB | 35.0 ms/turn |
+| CPython, no jail (reference) | 28 ms | 0.04 ms | 20 MiB | 13.6 ms/turn |
 
-### How it will be decided
+The jail itself costs nothing measurable. Pyodide costs 40× the start-up, 11× the memory and 2.6× the CPU for the same Python.
 
-On the target VM: cold start per bot, per-turn round-trip overhead, memory per bot, numpy availability, results on the full adversarial suite, and how much work it is to operate. The leaning is **A**, for exact parity with practice, unless its memory or start-up cost makes it unaffordable on 2 OCPUs.
+### Decision
+
+Ranked bots run as **CPython 3.14 inside bubblewrap**, one fresh jail per bot per match. The layers:
+
+- **Namespaces** (`--unshare-all`): no network, its own PIDs, IPC and hostname, and a user namespace that maps the bot to `nobody` with every capability dropped.
+- **Filesystem:** read-only `/usr` and the arena virtualenv, the bot's own file and nothing else, plus a size-capped tmpfs at `/tmp`. The environment is cleared.
+- **seccomp:** a deny-list in `sandbox/seccomp_policy.py`, compiled to BPF at image build. It blocks kernel-admin and namespace syscalls, `ptrace` and cross-process memory access, `io_uring`, `bpf`, `perf_event_open`, keyrings, every socket family except Unix sockets, and `clone` with namespace flags. `clone3` gets `ENOSYS` so libc falls back to `clone`, whose flags seccomp can inspect.
+- **cgroup v2, one per bot:** `memory.max` with swap off (a memory bomb is OOM-killed and recorded as `memory`), `pids.max` (fork and thread bombs hit a wall), and `cpu.max` of one core. `cpu.stat` gives the host each turn's CPU time. `cgroup.kill` ends the match and leaves no stragglers. The bot joins its cgroup *before* `exec`, so even import-time code is contained.
+- **Host-side time:** CPU per turn from `cpu.stat`, a time bank, and a wall-clock backstop for bots that sleep.
+
+### Reasoning
+
+On a 2-core box, CPU is the scarce resource. A would spend about 2 s of start-up per match, give every bot 2.6× less work per millisecond of budget, and use ten times the memory. B keeps players' local CLI runs (CPython) and ranked matches on the same interpreter, so local timing warnings mean something.
+
+What A offered was a WebAssembly layer underneath the OS jail. B replaces it with a syscall filter and resource limits. That's the same family of defences container runtimes and Flatpak use, and the adversarial suite (`sandbox/adversarial/`) exercises it on every CI run.
+
+### Alternatives considered
+
+- **A. Pyodide in Deno inside the same jail.** Stronger defence in depth, and the same runtime as browser practice. Rejected on cost, as measured above. Browser practice already labels its timing as indicative, because a player's machine isn't the server either.
+- **C. gVisor (`runsc`).** A user-space kernel is the strongest of the three. It wasn't measured: it needs a custom Docker runtime that Docker Desktop doesn't readily allow. It also adds an operational layer to a one-person, one-VM deployment, and its syscall interception costs CPU we don't have.
+- **nsjail instead of bubblewrap.** Similar layers with built-in cgroup and seccomp support, but it has to be built from source. bubblewrap is packaged in Debian and Ubuntu, and the cgroup and seccomp pieces are small.
+
+### What would change our mind
+
+- A kernel escape that the seccomp policy can't close.
+- Running on hardware where CPU is cheap.
+- A need for numpy-heavy bots whose behaviour differs between CPython and Pyodide.
+
+Any of these would bring back A or C. The runner launches a bot from an `argv`, so switching jails means changing that launch command; the protocol and harness stay as they are.
 
 ---
 

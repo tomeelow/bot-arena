@@ -16,6 +16,9 @@ class Limits:
     max_orders: int
     log_max_bytes_per_turn: int
     log_max_bytes_per_match: int
+    memory_mb: int
+    max_tasks: int
+    tmp_mb: int
 
     @classmethod
     def load(cls) -> Limits:
