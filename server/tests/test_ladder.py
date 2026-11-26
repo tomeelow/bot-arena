@@ -127,12 +127,12 @@ def test_a_comparison_counts_from_the_challengers_side(db, store):
     a, b = 6, 7
     matches = request(db, a, b, seed_pairs=2, rng=Random(5))
     winners = {matches[0]: 0, matches[1]: 0, matches[2]: None}  # seat 0 wins twice, a draw
-    for m, w in winners.items():
+    for seq, (m, w) in enumerate(winners.items(), 1):
         db.execute("UPDATE matches SET status = 'done' WHERE id = ?", (m,))
         db.execute(
-            "INSERT INTO results (match_id, winner_seat, end_reason, turns, replay_sha256) "
-            "VALUES (?, ?, 'turn_limit', 400, 'sha256:x')",
-            (m, w),
+            "INSERT INTO results (match_id, winner_seat, end_reason, turns, replay_sha256, seq) "
+            "VALUES (?, ?, 'turn_limit', 400, 'sha256:x', ?)",
+            (m, w, seq),
         )
     result = report(db, a, b)
     assert (result.wins, result.draws, result.losses, result.pending) == (1, 1, 1, 1)

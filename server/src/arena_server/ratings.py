@@ -1,8 +1,9 @@
 """Ratings (ADR-003): OpenSkill Weng-Lin, one (mu, sigma) per bot version.
 
 Results are the source of truth. Ratings are a fold over rated results in the order they
-were recorded; the live table is updated with the same function inside the transaction that
-records each result, so it always equals a rebuild.
+were recorded (`results.seq`; not match id, because the queue plays higher priority first).
+The live table is updated with the same function inside the transaction that records each
+result, so it always equals a rebuild.
 """
 
 import sqlite3
@@ -71,7 +72,7 @@ def rated_results(conn: sqlite3.Connection) -> list[sqlite3.Row]:
             JOIN match_players p0 ON p0.match_id = r.match_id AND p0.seat = 0
             JOIN match_players p1 ON p1.match_id = r.match_id AND p1.seat = 1
             WHERE m.kind IN {RATED_KINDS!r}
-            ORDER BY r.rowid"""
+            ORDER BY r.seq"""
     ).fetchall()
 
 
