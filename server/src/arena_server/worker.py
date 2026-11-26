@@ -17,12 +17,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from random import Random
 
+from arena import frames
 from arena.protocol import truncate
 from arena.replay import encode, load
 from arena.runner import Failure, MatchRecord
 from arena_engine import ENGINE_VERSION, GameState, Rules
 
-from . import bots, frames, ladder, queue
+from . import bots, ladder, queue
 from .db import connect, migrate
 from .ratings import Ratings
 from .settings import Settings

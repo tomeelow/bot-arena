@@ -1,11 +1,12 @@
-.PHONY: install verify lint typecheck test pyodide-check sandbox-check web-check format dev-api
+.PHONY: install verify lint typecheck test pyodide-check sandbox-check web-check web-e2e format dev-api
 
 install:  ## Install Python and web dependencies exactly as locked
 	uv sync --all-packages --locked
 	npm ci --prefix engine/pyodide
 	npm ci --prefix web
+	cd web && npx playwright install --with-deps chromium
 
-verify: lint typecheck test pyodide-check sandbox-check web-check  ## Everything CI runs; must pass before work is called done
+verify: lint typecheck test pyodide-check sandbox-check web-check web-e2e  ## Everything CI runs; must pass before work is called done
 
 lint:
 	uv run ruff check .
@@ -31,6 +32,9 @@ web-check:
 	npm run lint --prefix web
 	npm test --prefix web
 	npm run build --prefix web
+
+web-e2e:  ## Browser practice in a real browser: same replays as the CLI, hung bots stopped
+	npm run e2e --prefix web
 
 format:
 	uv run ruff format .

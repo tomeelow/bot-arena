@@ -1,16 +1,17 @@
-"""What the viewer draws (Phase 7): a header with the map, then one frame per turn.
+"""What the viewer draws: a header with the map, then one frame per turn.
 
-Live matches and replays use the same encoding; a live match is just a replay that is still
-being written (`live/<match_id>.jsonl`, appended by the worker). A frame is a full snapshot:
-gzip takes out the repetition, so deltas would only add code.
+Live matches, replays and browser practice use the same encoding; a live match is just a
+replay that is still being written. A frame is a full snapshot: gzip takes out the
+repetition, so deltas would only add code.
 """
 
 import base64
 from typing import Any
 
-from arena.replay import Replay
-from arena.runner import Result
 from arena_engine import UNIT_STATS, GameState, InvalidOrder, parse_order, step, visible_cells
+
+from .replay import Replay
+from .runner import Result
 
 KIND = {"worker": "w", "soldier": "s", "scout": "x"}
 

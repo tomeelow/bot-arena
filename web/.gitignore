@@ -22,3 +22,11 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Browser practice assets, copied in by scripts/practice-assets.mjs
+/static/pyodide
+/static/practice.json
+
+# Playwright
+/test-results
+/playwright-report

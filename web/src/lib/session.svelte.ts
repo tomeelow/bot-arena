@@ -18,8 +18,9 @@ class Session {
 		try {
 			const account = await get<Account>('/api/me');
 			if (generation === this.#generation) this.account = account;
-		} catch (e) {
-			if (!(e instanceof ApiError && e.status === 401)) throw e;
+		} catch {
+			// Logged out (401), or no server to ask (practice works without one): either way,
+			// nobody is logged in here.
 			this.account = null;
 		} finally {
 			this.checked = true;

@@ -187,6 +187,115 @@ class MatchRecord:
     final_state: GameState | None = None
 
 
+class Match:
+    """One match with no I/O: it says what to send each bot and is told what each replied.
+    `run_match` drives it over channels; browser practice drives it from JavaScript. Either
+    way the rules, the checks on replies and the record are this code."""
+
+    def __init__(
+        self,
+        players: tuple[str, str],
+        seed: int,
+        rules: Rules | None = None,
+        limits: Limits | None = None,
+        *,
+        enforce: bool = False,
+        on_turn: Callable[[GameState], None] | None = None,
+    ) -> None:
+        self.rules = rules or Rules()
+        self.limits = limits or Limits.load()
+        self.enforce = enforce
+        self.on_turn = on_turn
+        backstop = self.limits.turn_backstop_ms if enforce else self.limits.local_backstop_ms
+        self.turn_wait = backstop / 1000
+        self.init_wait = self.turn_wait + self.limits.init_ms / 1000 if enforce else self.turn_wait
+        self.wait_s = self.init_wait  # how long the driver should wait for the next replies
+        self.record = MatchRecord(seed, self.rules, players, logs=([], []))
+        self.state = new_game(self.rules, seed)
+        self.budget = _Budget(self.limits)
+        self.events: tuple[tuple[Event, ...], tuple[Event, ...]] = ((), ())
+        self.started = False
+
+    def start(self) -> list[dict[str, Any]]:
+        """The init message for each seat."""
+        if self.on_turn:
+            self.on_turn(self.state)
+        seed = self.record.seed
+        return [
+            init_message(self.state, seat, self.limits, rng_seed=2 * seed + seat) for seat in SEATS
+        ]
+
+    def advance(self, replies: list[Reply]) -> list[dict[str, Any]] | None:
+        """Take both seats' replies to the last messages. Returns the next messages, or None
+        once the match is over and `record` is complete."""
+        failures = {
+            seat: (r.problem or Failure.CRASH, r.detail)
+            for seat, r in enumerate(replies)
+            if r.line is None
+        }
+        lines = [r.line or b"" for r in replies]
+        ms = [round(r.ms) for r in replies]
+        if not self.started:
+            self.started = True
+            self.wait_s = self.turn_wait
+            self._ready(lines, failures, ms)
+        else:
+            self._turn(lines, failures, ms)
+        if self.state.outcome is None and not failures:
+            return [turn_message(self.state, seat, self.events[seat]) for seat in SEATS]
+        self.record.result = _result(self.state, failures)
+        self.record.final_state = self.state
+        self.record.warnings = self.budget.warnings()
+        return None
+
+    def _ready(
+        self, lines: list[bytes], failures: dict[int, tuple[Failure, str]], ms: list[int]
+    ) -> None:
+        for seat in SEATS:
+            if seat in failures:
+                continue
+            try:
+                log = parse_ready(lines[seat], self.limits)
+                _note_log(self.record, seat, 0, log, self.limits)
+            except ProtocolError as e:
+                failures[seat] = (Failure.INVALID_OUTPUT, str(e))
+            if self.enforce and seat not in failures and ms[seat] > self.limits.init_ms:
+                failures[seat] = (
+                    Failure.TIMEOUT,
+                    f"setup took {ms[seat]} ms of {self.limits.init_ms}",
+                )
+
+    def _turn(
+        self, lines: list[bytes], failures: dict[int, tuple[Failure, str]], ms: list[int]
+    ) -> None:
+        state, limits = self.state, self.limits
+        orders: list[list[Order]] = [[], []]
+        for seat in SEATS:
+            if seat in failures:
+                continue
+            try:
+                orders[seat], log = parse_orders(lines[seat], state.turn, limits)
+            except ProtocolError as e:
+                failures[seat] = (Failure.INVALID_OUTPUT, str(e))
+                continue
+            _note_log(self.record, seat, state.turn, log, limits)
+        if failures:
+            return
+        self.budget.charge(state.turn, ms)
+        if self.enforce:
+            for seat in SEATS:
+                if self.budget.bank[seat] < 0:
+                    failures[seat] = (Failure.TIMEOUT, f"time bank empty at turn {state.turn}")
+            if failures:
+                return
+        self.record.orders.append((orders[0], orders[1]))
+        self.record.think_ms.append((ms[0], ms[1]))
+        result = step(state, {0: orders[0], 1: orders[1]})
+        self.state, self.events = result.state, result.events
+        if self.on_turn:
+            self.on_turn(self.state)
+
+
 def run_match(
     players: tuple[str, str],
     seed: int,
@@ -202,85 +311,26 @@ def run_match(
     By default limits only warn. With `enforce`, as in ranked play, a bot that overruns its
     setup budget or empties its time bank loses on time, and the wall-clock backstop is the
     ranked one. `on_turn` sees every state as it happens, from turn 0: live spectating."""
-    rules = rules or Rules()
-    limits = limits or Limits.load()
-    turn_wait = (limits.turn_backstop_ms if enforce else limits.local_backstop_ms) / 1000
-    init_wait = turn_wait + limits.init_ms / 1000 if enforce else turn_wait
-    record = MatchRecord(seed, rules, players, logs=([], []))
-    state = new_game(rules, seed)
-    if on_turn:
-        on_turn(state)
+    match = Match(players, seed, rules, limits, enforce=enforce, on_turn=on_turn)
+    messages: list[dict[str, Any]] | None = match.start()
     channels: list[Channel] = []
-    budget = _Budget(limits)
     try:
-        channels = [opener(p, limits) for p in players]
-        inits = [init_message(state, seat, limits, rng_seed=2 * seed + seat) for seat in SEATS]
-        lines, failures, ms = _exchange(channels, inits, init_wait)
-        for seat in SEATS:
-            if seat in failures:
-                continue
-            try:
-                _note_log(record, seat, 0, parse_ready(lines[seat], limits), limits)
-            except ProtocolError as e:
-                failures[seat] = (Failure.INVALID_OUTPUT, str(e))
-            if enforce and seat not in failures and ms[seat] > limits.init_ms:
-                failures[seat] = (Failure.TIMEOUT, f"setup took {ms[seat]} ms of {limits.init_ms}")
-
-        events: tuple[tuple[Event, ...], tuple[Event, ...]] = ((), ())
-        while state.outcome is None and not failures:
-            messages = [turn_message(state, seat, events[seat]) for seat in SEATS]
-            lines, failures, ms = _exchange(channels, messages, turn_wait)
-            orders: list[list[Order]] = [[], []]
-            for seat in SEATS:
-                if seat in failures:
-                    continue
-                try:
-                    orders[seat], log = parse_orders(lines[seat], state.turn, limits)
-                except ProtocolError as e:
-                    failures[seat] = (Failure.INVALID_OUTPUT, str(e))
-                    continue
-                _note_log(record, seat, state.turn, log, limits)
-            if failures:
-                break
-            budget.charge(state.turn, ms)
-            if enforce:
-                for seat in SEATS:
-                    if budget.bank[seat] < 0:
-                        failures[seat] = (Failure.TIMEOUT, f"time bank empty at turn {state.turn}")
-                if failures:
-                    break
-            record.orders.append((orders[0], orders[1]))
-            record.think_ms.append((ms[0], ms[1]))
-            result = step(state, {0: orders[0], 1: orders[1]})
-            state, events = result.state, result.events
-            if on_turn:
-                on_turn(state)
-        record.result = _result(state, failures)
+        channels = [opener(p, match.limits) for p in players]
+        while messages is not None:
+            messages = match.advance(_exchange(channels, messages, match.wait_s))
     finally:
         tails = [c.close() for c in channels] + ["", ""]
-        record.stderr = (tails[0], tails[1])
-    record.final_state = state
-    record.warnings = budget.warnings()
-    return record
+        match.record.stderr = (tails[0], tails[1])
+    return match.record
 
 
 def _exchange(
     channels: list[Channel], messages: list[dict[str, Any]], wait_s: float
-) -> tuple[list[bytes], dict[int, tuple[Failure, str]], list[int]]:
-    """Send both seats their message first, so both think at once, then collect replies:
-    (reply lines, failures by seat, thinking time in ms)."""
+) -> list[Reply]:
+    """Send both seats their message first, so both think at once, then collect replies."""
     for channel, message in zip(channels, messages, strict=True):
         channel.send(message)
-    lines: list[bytes] = []
-    failures: dict[int, tuple[Failure, str]] = {}
-    ms: list[int] = []
-    for seat, channel in enumerate(channels):
-        reply = channel.receive(wait_s)
-        ms.append(round(reply.ms))
-        lines.append(reply.line or b"")
-        if reply.line is None:
-            failures[seat] = (reply.problem or Failure.CRASH, reply.detail)
-    return lines, failures, ms
+    return [channel.receive(wait_s) for channel in channels]
 
 
 def _note_log(record: MatchRecord, seat: int, turn: int, text: str, limits: Limits) -> None:

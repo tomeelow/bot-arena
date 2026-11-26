@@ -22,7 +22,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | 🟨 | 4 | Rating service, matchmaker, synthetic-ladder validation |
 | 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | 🟨 | 5 | FastAPI, GitHub login, websocket streaming |
 | 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ✅ | 6 | Ladder, bot pages, viewer with scrubber and logs |
-| 8 | [Browser practice](#phase-8--browser-practice) | ⬜ | 2, 7 | Pyodide practice mode, cross-runtime determinism |
+| 8 | [Browser practice](#phase-8--browser-practice) | 🟨 | 2, 7 | Pyodide practice mode, cross-runtime determinism |
 | 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | ⬜ | 7 | Live site on free tiers, backups, budget guards, private alpha |
 | 10 | [Observability & usage metrics](#phase-10--observability--usage-metrics) | ⬜ | 9 | Public stats page, platform health, alerts |
 | 11 | [The RL boss](#phase-11--the-rl-boss) | ⬜ | 2 (train), 9 (ship) | Self-play boss on the ladder with a model card |
@@ -571,6 +571,7 @@ Names, descriptions and logs render as text. Strict CSP with no inline scripts.
 ### Notes for Phase 9
 - **The site assumes one origin for pages and API.** The session cookie is `SameSite=Lax`, and the frontend calls `/api` relatively. The static build and the API have to be served from the same origin (for example Caddy serving `web/build` and proxying `/api`, `/auth` and `/ws`), or this needs a new decision before deploying.
 - **The CSP ships as a `<meta>` tag**, which can't carry `frame-ancestors`. Send it, plus `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy`, as real headers from whatever serves the site.
+- **Practice workers need WebAssembly.** If the site's CSP is sent as a header, it also applies to the practice workers' scripts, so it must allow `'wasm-unsafe-eval'` for them (the `<meta>` tag doesn't reach workers today). Serve `.wasm` as `application/wasm`.
 - **Nothing creates the built-in anchors in production yet.** `bots.builtin_version` is only called by tests and `scripts/dev_server.py`, so a fresh database places new bots against no anchors. Deployment needs a bootstrap step.
 
 ---
@@ -587,10 +588,10 @@ Names, descriptions and logs render as text. Strict CSP with no inline scripts.
 - A "Submit to ladder" button hands the current code to the upload flow.
 
 **Exit criteria**
-- [ ] Practice page: editor, opponent picker, run, watch
-- [ ] A hung user bot is terminated and reported without freezing the page
-- [ ] The browser and the CLI produce identical replays for the same seed and bots (Playwright e2e test)
-- [ ] Someone else, in a fresh browser profile, went from landing page to a bot that beats `random` to a submitted bot, with no local install
+- [x] Practice page: editor, opponent picker, run, watch (`/practice`; ADR-009)
+- [x] A hung user bot is terminated and reported without freezing the page (`web/tests/e2e/practice.spec.ts`)
+- [x] The browser and the CLI produce identical replays for the same seed and bots (Playwright e2e test, both seats; thinking times and the bot's file path excepted)
+- [ ] Someone else, in a fresh browser profile, went from landing page to a bot that beats `random` to a submitted bot, with no local install (needs an outside player, and Phase 9's public site for the submit step)
 
 ---
 

@@ -2,14 +2,9 @@
 	import { page } from '$app/state';
 	import { get, maybe } from '#lib/api.js';
 	import { session } from '#lib/session.svelte.js';
-	import type { InvalidOrder, MatchView } from '#lib/types.js';
+	import type { InvalidOrder, MatchView, Owned } from '#lib/types.js';
 	import { MatchFeed } from '#lib/viewer/feed.svelte.js';
 	import Viewer from '#lib/viewer/Viewer.svelte';
-
-	interface Owned {
-		logs: [number, string][];
-		invalid: InvalidOrder[];
-	}
 
 	let match = $state<MatchView | null>(null);
 	let feed = $state<MatchFeed | null>(null);

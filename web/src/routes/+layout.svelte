@@ -12,6 +12,7 @@
 		[resolve('/'), 'Home'],
 		[resolve('/ladder'), 'Ladder'],
 		[resolve('/rules'), 'Rules & starter kit'],
+		[resolve('/practice'), 'Practice'],
 		[resolve('/me'), 'My bots']
 	] as const;
 

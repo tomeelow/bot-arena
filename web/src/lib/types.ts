@@ -79,6 +79,9 @@ export interface Player {
 	version: number;
 }
 
+/** A player as the viewer's header has it: browser practice has no ladder ids. */
+export type HeaderPlayer = Pick<Player, 'seat' | 'bot' | 'owner'> & Partial<Player>;
+
 export interface MatchView {
 	id: number;
 	kind: string;
@@ -104,7 +107,7 @@ export interface Header {
 	cores: [number, number][];
 	core_hp: number;
 	unit_stats: Record<UnitKind, { cost: number; hp: number }>;
-	players: Player[];
+	players: HeaderPlayer[];
 }
 
 export interface Frame {
@@ -126,4 +129,10 @@ export type Line = Header | Frame | End;
 export interface InvalidOrder {
 	turn: number;
 	reason: string;
+}
+
+/** What only a bot's owner sees of a match: its logs and the orders the engine refused. */
+export interface Owned {
+	logs: [number, string][];
+	invalid: InvalidOrder[];
 }
