@@ -250,3 +250,43 @@ Replaying from orders needs no bot code. That works for bots that read the clock
 ### What would change our mind
 
 Replay storage threatening the free storage cap (then a binary encoding), or a need to replay without the engine (then frames become canonical too).
+
+---
+
+## ADR-008 — Rating parameters chosen on a synthetic ladder
+
+**Status:** accepted · **Date:** 2026-11-26 · **Refines:** ADR-003
+
+### Context
+
+ADR-003 chose OpenSkill. Before players rely on its numbers, `scripts/ratings_validation.py` runs the real matchmaker, worker and live ratings over 17 bots whose true order is known. The bots are the built-ins at noise 0, 0.25, 0.5 and 0.75, plus random, and the truth is a round robin fitted with Bradley–Terry. The targets were fixed in the script before the first run.
+
+### What the runs showed
+
+| Check (target) | Run 1: OpenSkill defaults | Run 2: this ADR, fresh seeds |
+|---|---|---|
+| Kendall τ at 50 games per bot (≥ 0.90) | 0.882 | 0.868 |
+| Worst calibration gap of P(win) (≤ 0.10) | 0.163 | 0.108 |
+| Worst gap of "X% stronger" vs truth (≤ 0.15) | 0.067 | 0.016 |
+| Median games until σ < 3.0 (≤ 50) | not reached in 60 | not reached in 60 (σ ≈ 3.1) |
+
+Run 1 had two problems:
+- **Predictions were underconfident:** a predicted 65–75% won 81–88% of the time.
+- **Games were wasted:** 44% of them were near-certain blowouts, which carry almost no information.
+
+### Decision
+
+- **β = 3.0**, down from 4.17. This is the per-game noise term: our games are more decisive than OpenSkill's default assumes. The value was picked by prequential log loss over run 1's recorded results, sweeping β from 1 to 4.17 (best: 2.5–3.0). Smaller values overshoot into overconfidence.
+- **Exploration floor 0.02**, down from 0.1, so the matchmaker mostly picks informative, close games.
+- **τ = 0** stays. A version's code, and so its skill, never changes.
+
+### What is still missed, and why it isn't hidden
+
+- **Ordering (τ 0.87–0.88).** Most inversions are near-ties in the truth, around 55–60% matchups. The game is also deliberately intransitive (rush beats greed, greed beats turtle, turtle holds rush), so no single number orders those bots the same way for every opponent mix. The round robin and the matchmaker face different mixes.
+- **Convergence.** σ reaches about 3.1 at 50–60 games. Leaving "provisional" takes roughly 60–70 games, not 50.
+- **The targets stay as they were.** The open item in the plan's Phase 5 tracks them. The next things to try are a wider prior σ (the population's μ spread is about twice the default prior) and more ladder games per check.
+
+### What would change our mind
+
+Real ladder results that calibrate worse than this synthetic one would. So would a fix that meets the τ and convergence targets on fresh seeds without hurting calibration.
+

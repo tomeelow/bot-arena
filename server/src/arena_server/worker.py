@@ -14,14 +14,16 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from random import Random
 
 from arena.protocol import truncate
 from arena.replay import encode, load
 from arena.runner import Failure, MatchRecord
 from arena_engine import ENGINE_VERSION, Rules
 
-from . import bots, queue
+from . import bots, ladder, queue
 from .db import connect, migrate
+from .ratings import Ratings
 from .settings import Settings
 from .store import CODE, PY, REPLAY, REPLAYS, Store
 
@@ -39,6 +41,10 @@ class Worker:
     play: Play
     settings: Settings = field(default_factory=Settings.load)
     worker_id: str = field(default_factory=lambda: f"{socket.gethostname()}:{os.getpid()}")
+    rng: Random = field(default_factory=Random)
+
+    def __post_init__(self) -> None:
+        self.ratings = Ratings(self.settings)
 
     def step(self) -> bool:
         """Do one piece of work: validate a pending version, else play a queued match.
@@ -64,7 +70,8 @@ class Worker:
             log.info("version %d rejected: %s", version_id, result.reason)
         else:
             bots.activate(self.conn, version_id)
-            log.info("version %d active", version_id)
+            placed = ladder.place(self.conn, version_id, self.settings, self.rng)
+            log.info("version %d active, %d placement matches queued", version_id, len(placed))
 
     def play_claim(self, claim: queue.Claim) -> None:
         try:
@@ -78,7 +85,9 @@ class Worker:
             log.exception("platform_error in match %d", claim.match_id)
             queue.void(self.conn, claim.match_id, f"platform_error: {e!r}"[:500])
             return
-        if queue.finish(self.conn, claim.match_id, self.worker_id, record.result, replay):
+        if queue.finish(
+            self.conn, claim.match_id, self.worker_id, record.result, replay, self.ratings
+        ):
             log.info(
                 "match %d: %s, turn %d",
                 claim.match_id,
