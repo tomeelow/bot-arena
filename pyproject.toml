@@ -48,14 +48,20 @@ select = [
 
 [tool.pyright]
 pythonVersion = "3.14"
-include = ["engine/src", "engine/tests", "starter_kit/src", "starter_kit/tests", "sandbox/src", "server/src", "scripts", "tests"]
+include = [
+    "engine/src", "engine/tests",
+    "starter_kit/src", "starter_kit/tests",
+    "sandbox/src", "sandbox/tests",
+    "server/src", "server/tests",
+    "scripts", "tests",
+]
 extraPaths = ["engine/tests"]
 strict = ["engine/src"]
 venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "engine/tests", "starter_kit/tests"]
+testpaths = ["tests", "engine/tests", "starter_kit/tests", "server/tests"]
 pythonpath = ["engine/tests"]
 addopts = ["--strict-config", "--strict-markers"]
 
