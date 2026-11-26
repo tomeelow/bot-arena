@@ -18,8 +18,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ✅ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
 | 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | 🟨 | 1 | Local runner, replay format v1, baseline bots, balance report |
 | 3 | [Sandbox](#phase-3--sandbox) | ✅ | 2 | Jailed runner, adversarial suite passing |
-| 4 | [Match infrastructure](#phase-4--match-infrastructure) | 🟨 | 3 | Upload pipeline, queue, workers, replay store |
-| 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | ⬜ | 4 | Rating service, matchmaker, synthetic-ladder validation |
+| 4 | [Match infrastructure](#phase-4--match-infrastructure) | ✅ | 3 | Upload pipeline, queue, workers, replay store |
+| 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | 🟨 | 4 | Rating service, matchmaker, synthetic-ladder validation |
 | 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | ⬜ | 5 | FastAPI, GitHub login, websocket streaming |
 | 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ⬜ | 6 | Ladder, bot pages, viewer with scrubber and logs |
 | 8 | [Browser practice](#phase-8--browser-practice) | ⬜ | 2, 7 | Pyodide practice mode, cross-runtime determinism |
@@ -499,12 +499,13 @@ The owner starts it, and it's rate-limited. It plays K seeds × 2 seats as unrat
 **Deliverable:** the rating service, matchmaker, placement and version comparison, plus `docs/ratings_validation.md`, which is the evidence that "87%" means 87%.
 
 **Exit criteria**
-- [ ] Live updates and a full rebuild agree exactly (test)
-- [ ] Leaderboard by conservative score, with intervals and a provisional state
-- [ ] Matchmaker invariants as property tests: never the same owner, always mirrored pairs, exploration floor respected
-- [ ] Placement against anchors
-- [ ] Version comparison with a CI and links to losses
-- [ ] Synthetic-ladder validation report: ordering, calibration and convergence measured against targets set beforehand
+- [x] Live updates and a full rebuild agree exactly (test)
+- [x] Leaderboard by conservative score, with intervals and a provisional state
+- [x] Matchmaker invariants as property tests: never the same owner, always mirrored pairs, exploration floor respected
+- [x] Placement against anchors
+- [x] Version comparison with a CI and links to losses
+- [x] Synthetic-ladder validation report: ordering, calibration and convergence measured against targets set beforehand (`docs/ratings_validation.md`, ADR-008)
+- [ ] The validation's ordering (τ ≥ 0.90 at 50 games) and convergence (provisional left within 50 games) targets met on fresh seeds. Calibration and "X% stronger" already pass; see ADR-008 for the misses and what to try next
 
 ---
 

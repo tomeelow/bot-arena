@@ -9,11 +9,14 @@ from arena.replay import load
 from arena.runner import Result
 from arena_server import bots, queue
 from arena_server.db import connect, migrate
+from arena_server.ratings import Ratings
+from arena_server.settings import Settings
 from arena_server.store import REPLAY, REPLAYS, Store
 from arena_server.worker import Worker
 from helpers import must_claim
 
 DRAW = Result(None, "turn_limit", 5)
+RATINGS = Ratings(Settings.load())
 
 
 def pair(db):
@@ -46,12 +49,12 @@ def test_a_claim_carries_the_players_in_seat_order(db):
 def test_a_result_needs_this_workers_live_lease(db):
     queue.enqueue(db, "ranked", pair(db), seed=1)
     claim = must_claim(db, "w1", 60)
-    assert not queue.finish(db, claim.match_id, "w2", DRAW, "sha256:x")
+    assert not queue.finish(db, claim.match_id, "w2", DRAW, "sha256:x", RATINGS)
     queue.enqueue(db, "ranked", pair(db), seed=2)
     expired = must_claim(db, "w1", -1)
-    assert not queue.finish(db, expired.match_id, "w1", DRAW, "sha256:x")
+    assert not queue.finish(db, expired.match_id, "w1", DRAW, "sha256:x", RATINGS)
     assert db.execute("SELECT count(*) FROM results").fetchone()[0] == 0
-    assert queue.finish(db, claim.match_id, "w1", DRAW, "sha256:x")
+    assert queue.finish(db, claim.match_id, "w1", DRAW, "sha256:x", RATINGS)
 
 
 def test_reaping_voids_an_expired_match_and_queues_the_pairing_again(db):
@@ -63,7 +66,7 @@ def test_reaping_voids_an_expired_match_and_queues_the_pairing_again(db):
     assert tuple(old.fetchone()) == ("void", "lease expired")
     retry = must_claim(db, "alive", 60)
     assert (retry.match_id, retry.seed, retry.version_ids) == (again, 7, versions)
-    assert not queue.finish(db, stale.match_id, "dead", DRAW, "sha256:x")
+    assert not queue.finish(db, stale.match_id, "dead", DRAW, "sha256:x", RATINGS)
 
 
 def drain(db_path: Path, data: Path) -> int:

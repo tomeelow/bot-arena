@@ -10,6 +10,9 @@ from dataclasses import dataclass
 from arena.runner import Result
 from arena_engine import ENGINE_VERSION
 
+from . import ratings as rating_table
+from .ratings import Ratings
+
 
 @contextmanager
 def immediate(conn: sqlite3.Connection) -> Iterator[None]:
@@ -67,10 +70,16 @@ def claim(conn: sqlite3.Connection, worker_id: str, lease_s: float) -> Claim | N
 
 
 def finish(
-    conn: sqlite3.Connection, match_id: int, worker_id: str, result: Result, replay: str
+    conn: sqlite3.Connection,
+    match_id: int,
+    worker_id: str,
+    result: Result,
+    replay: str,
+    ratings: Ratings,
 ) -> bool:
-    """Record a result, but only while this worker still holds a live lease on the match. A
-    reaped or voided match can never gain a result."""
+    """Record a result and fold it into the ratings, in one transaction, but only while this
+    worker still holds a live lease on the match. A reaped or voided match never gains a
+    result, so it can never move a rating."""
     with immediate(conn):
         updated = conn.execute(
             """UPDATE matches SET status = 'done', finished_at = datetime('now')
@@ -84,6 +93,7 @@ def finish(
                VALUES (?, ?, ?, ?, ?)""",
             (match_id, result.winner, result.reason, result.turns, replay),
         )
+        rating_table.apply(conn, match_id, ratings)
     return True
 
 

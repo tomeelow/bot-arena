@@ -11,3 +11,21 @@ idle_sleep_s = 1.0
 [validation]
 smoke_turns = 50           # turns of the smoke match against builtin:random
 error_max_bytes = 4096     # what the owner sees of a rejection
+
+[ratings]
+# OpenSkill Weng-Lin (ADR-003). A version's code never changes, so neither does its skill:
+# no drift term (tau = 0), and uncertainty only ever shrinks.
+mu = 25.0
+sigma = 8.333333333333334
+beta = 3.0                 # per-game noise; OpenSkill's default 4.17 was underconfident here (docs/ratings_validation.md)
+tau = 0.0
+conservative_k = 3.0       # leaderboard rank: mu - k * sigma
+provisional_sigma = 3.0    # above this, a bot is shown as provisional
+
+[matchmaking]
+explore_floor = 0.02       # even a lopsided pairing keeps this much weight; at 0.1, 44% of games were near-certain
+pair_cap = 4               # at most this many games between two bots ...
+pair_window = 200          # ... among the most recent this many matches
+placement_seed_pairs = 2   # per anchor; each seed is played from both seats
+placement_priority = 10
+queue_target = 8           # the scheduler keeps this many matches queued
