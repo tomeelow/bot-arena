@@ -6,6 +6,7 @@ records each result, so it always equals a rebuild.
 """
 
 import sqlite3
+from collections.abc import Iterator
 from dataclasses import dataclass
 from math import erf, sqrt
 
@@ -74,8 +75,10 @@ def rated_results(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     ).fetchall()
 
 
-def rebuild(conn: sqlite3.Connection, ratings: Ratings) -> dict[int, Rating]:
-    """Every rating, recomputed from the results alone."""
+def fold(
+    conn: sqlite3.Connection, ratings: Ratings
+) -> Iterator[tuple[sqlite3.Row, Rating, Rating]]:
+    """Each rated result in order, with both players' ratings after it."""
     parents: dict[int, int | None] = dict(
         conn.execute("SELECT id, parent_id FROM bot_versions").fetchall()
     )
@@ -88,10 +91,30 @@ def rebuild(conn: sqlite3.Connection, ratings: Ratings) -> dict[int, Rating]:
         return ratings.prior(table.get(parent) if parent is not None else None)
 
     for row in rated_results(conn):
-        table[row["v0"]], table[row["v1"]] = ratings.update(
-            current(row["v0"]), current(row["v1"]), row["winner_seat"]
-        )
+        a, b = ratings.update(current(row["v0"]), current(row["v1"]), row["winner_seat"])
+        table[row["v0"]], table[row["v1"]] = a, b
+        yield row, a, b
+
+
+def rebuild(conn: sqlite3.Connection, ratings: Ratings) -> dict[int, Rating]:
+    """Every rating, recomputed from the results alone."""
+    table: dict[int, Rating] = {}
+    for row, a, b in fold(conn, ratings):
+        table[row["v0"]], table[row["v1"]] = a, b
     return table
+
+
+def history(
+    conn: sqlite3.Connection, ratings: Ratings, version_ids: set[int]
+) -> list[tuple[int, int, Rating]]:
+    """(match id, version id, rating after it) for every rated game these versions played.
+    Replays the whole fold, so it is exactly what the live table went through."""
+    points = []
+    for row, a, b in fold(conn, ratings):
+        for version, rating in ((row["v0"], a), (row["v1"], b)):
+            if version in version_ids:
+                points.append((row["match_id"], version, rating))
+    return points
 
 
 def stored(conn: sqlite3.Connection) -> dict[int, Rating]:

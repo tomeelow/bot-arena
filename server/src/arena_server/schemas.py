@@ -21,6 +21,9 @@ class LadderRow(BaseModel):
     high: float = Field(description="mu + 2 sigma")
     games: int
     provisional: bool
+    p_above_next: float | None = Field(
+        description="P(this bot's skill > the next bot down's): about skill, not the next game"
+    )
 
 
 class VersionView(BaseModel):
@@ -108,3 +111,25 @@ class MatchView(BaseModel):
     players: list[Player]
     result: Outcome | None
     void_reason: str | None
+
+
+class MyBot(BaseModel):
+    id: int
+    name: str
+
+
+class Account(BaseModel):
+    handle: str
+    bots: list[MyBot]
+
+
+class RatingPoint(BaseModel):
+    match_id: int
+    version_id: int
+    mu: float
+    sigma: float
+
+
+class InvalidOrderView(BaseModel):
+    turn: int
+    reason: str

@@ -1,4 +1,4 @@
-.PHONY: install verify lint typecheck test pyodide-check sandbox-check web-check format
+.PHONY: install verify lint typecheck test pyodide-check sandbox-check web-check format dev-api
 
 install:  ## Install Python and web dependencies exactly as locked
 	uv sync --all-packages --locked
@@ -36,3 +36,6 @@ format:
 	uv run ruff format .
 	uv run ruff check --fix .
 	npm run format --prefix web
+
+dev-api:  ## Local API + worker on 127.0.0.1:8000 with a fake login; pair with `npm run dev --prefix web`
+	uv run python scripts/dev_server.py

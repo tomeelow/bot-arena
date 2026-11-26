@@ -37,8 +37,17 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		// Bot names, descriptions and logs come from strangers: they only ever render as text.
+		rules: {
+			'svelte/no-at-html-tags': 'error',
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						'AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/], CallExpression[callee.property.name=/^(insertAdjacentHTML|setHTMLUnsafe|write|writeln)$/]',
+					message: 'Untrusted text must render as text: use Svelte {expressions} or textContent.'
+				}
+			]
+		}
 	}
 );
