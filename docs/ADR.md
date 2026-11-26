@@ -431,3 +431,35 @@ Healthchecks.io limiting free checks or email alerts. Its code is open source (B
 ### Sources (read 2026-11-26)
 
 - [Healthchecks.io pricing](https://healthchecks.io/pricing)
+
+---
+
+## ADR-012 — The RL boss: a learned strategy over shared tactics, trained with numpy PPO, shipped as pure Python
+
+**Status:** accepted · **Date:** 2026-11-26 · **Departs from:** the Phase 11 plan's per-cell action map, PyTorch and pure-numpy inference
+
+### Context
+
+The plan sketched a per-cell action map over grid channels, a small convolutional net trained with PyTorch, and a pure-numpy forward pass in the shipped bot. Two facts changed that:
+
+- **numpy is not in the jail.** Ranked bots get the standard library and the starter kit. Adding numpy would change the jail's allowed modules, which CLAUDE.md lists under "Ask before acting", and it would grow the read-only venv that every jail binds.
+- **Compute is one laptop.** The engine is pure Python, at about 0.15–0.3 s per 400-turn match. A per-cell policy would have to learn moving, mining and fighting from a win/loss signal, which needs far more games than that budget allows.
+
+### Decision
+
+- **What the network decides.** Every 4 turns a two-layer MLP (64 tanh units, 6,664 parameters) picks what the Core builds (nothing, a worker, a soldier or a scout) and the soldiers' stance (defend a ring at home, attack the enemy Core, or hunt the enemy units seen last). Workers, pathing and adjacent fights use `arena.builtin.tactics`, the same code the scripted bots use. The network sees 30 scaled features of the observation and of the bot's memory of earlier ones (`rl/src/arena_rl/boss.py`).
+- **Training.** PPO with hand-written gradients in numpy (`ppo.py`; a test checks them against finite differences), against a league: the scripted bots weighted towards the strong ones, past checkpoints, and the current policy. The reward is the result alone: +1, 0 or −1.
+- **Environment.** Our own two-seat environment, shaped like a PettingZoo `ParallelEnv` but without the dependency (`env.py`). It uses the engine's `observe()` and seeds each bot as the harness does. A test checks that it gives the CLI runner's result and final state, bit for bit.
+- **Shipping.** The bot is one pure-Python file: `boss.py` with the weights written in by `export.py`. It imports only the starter kit and the standard library, and a test enforces that. It is uploaded with `ops upload-boss` under an `arena-boss` account, as a pending version that goes through the same size cap, smoke match, jail, limits and placement as anyone's upload.
+- **Packaging.** `rl/` is its own uv project, not a workspace member, so the server's `uv sync --all-packages` never installs numpy. `make verify` runs its types and tests (`rl-check`), and a guardrail test keeps it out of the workspace.
+
+### Alternatives considered
+
+- **The per-cell convolutional policy from the plan.** It is the more general learner, but there is no affordable way to train it here. It would also need numpy in the jail, or a pure-Python convolution at 1,024 cells a turn, against a 100 ms budget.
+- **numpy in the jail.** It would make a pure-numpy forward pass possible. But it is a sandbox change made for one bot, and every bot would get it, which is a UX change too. Pure Python is fast enough: the boss's p99 think time in the jail is a few milliseconds.
+- **PyTorch for training.** It would save the hand-written gradients, but it is a large dependency for a 6k-parameter MLP, and the gradient test already covers the risk.
+- **Behaviour cloning from the scripted bots first.** It wasn't needed: PPO from scratch learned to beat rush within minutes of laptop time. Turtle needed better features, not a better start (docs/boss_model_card.md).
+
+### What would change our mind
+
+The boss plateauing below the best human bots for good: then a richer action space (per-unit targets) is worth the compute, starting with behaviour cloning. Also numpy being added to the jail for players' own sake, which would make larger networks cheap to ship.

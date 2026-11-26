@@ -242,6 +242,16 @@ sudo -u arena ARENA_DATA_DIR=/var/lib/arena-drill /opt/arena/venv/bin/python -m 
 
 What a restore can lose: up to an hour of results, plus bot logs (which aren't backed up; they're private debug output and expire anyway).
 
+## Uploading the boss
+
+The RL boss (ADR-012, `docs/boss_model_card.md`) is trained offline, never on this VM. Its `boss.py` ships as a GitHub release asset. Copy it to the VM and submit it:
+
+```bash
+sudo -u arena ARENA_DATA_DIR=/var/lib/arena /opt/arena/venv/bin/python -m arena_server.ops upload-boss /tmp/boss.py
+```
+
+That adds a pending version of the `arena-boss` account's bot. A worker then gives it the same smoke match in the jail as any upload, and places it on the ladder. Check its per-turn time on this machine afterwards with `scripts/boss_timing.py`, as the Phase 11 exit criterion asks.
+
 ## Rotating secrets
 
 - **`SESSION_SECRET`:** edit `/etc/arena/api.env`, then `sudo systemctl restart arena-api`. Everyone is logged out.

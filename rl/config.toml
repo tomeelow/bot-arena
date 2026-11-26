@@ -1,0 +1,29 @@
+# Stage 1 of the boss's training (ADR-012), from scratch: `python -m arena_rl.train config.toml
+# runs/stage1`. Stage 2 (finetune.toml) continues from its last checkpoint.
+
+[train]
+seed = 1
+updates = 150
+games_per_update = 72
+jobs = 9
+hidden = 64
+lr = 3e-4
+gamma = 0.99   # per decision, i.e. every boss.DECIDE_EVERY turns
+lam = 0.95
+clip = 0.2
+value_coef = 0.5
+entropy_coef = 0.01
+epochs = 4
+minibatch = 512
+max_grad_norm = 0.5
+
+[league]
+# Relative weights for the scripted opponents; the strongest get the most games.
+scripted = { rush = 0.3, scout = 0.25, turtle = 0.2, greedy = 0.15, random = 0.1 }
+scripted_share = 0.5  # of games against a scripted bot
+past_share = 0.3      # against a past checkpoint; the rest against the current policy
+snapshot_every = 10   # updates between checkpoints added to the league
+
+[eval]
+every = 10        # updates between evaluations against the fixed baselines
+seed_pairs = 20   # seeds 0..19, each from both seats

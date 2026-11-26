@@ -1,12 +1,13 @@
-.PHONY: install verify lint typecheck test pyodide-check sandbox-check deploy-check web-check web-e2e format dev-api
+.PHONY: install verify lint typecheck test rl-check pyodide-check sandbox-check deploy-check web-check web-e2e format dev-api
 
 install:  ## Install Python and web dependencies exactly as locked
 	uv sync --all-packages --locked
+	uv sync --project rl --locked
 	npm ci --prefix engine/pyodide
 	npm ci --prefix web
 	cd web && npx playwright install --with-deps chromium
 
-verify: lint typecheck test pyodide-check sandbox-check deploy-check web-check web-e2e  ## Everything CI runs; must pass before work is called done
+verify: lint typecheck test rl-check pyodide-check sandbox-check deploy-check web-check web-e2e  ## Everything CI runs; must pass before work is called done
 
 lint:
 	uv run ruff check .
@@ -18,6 +19,9 @@ typecheck:
 
 test:
 	uv run pytest
+
+rl-check:  ## Boss training (rl/, its own project so numpy stays off the server): types and tests
+	cd rl && uv run --locked pyright && uv run --locked pytest -q
 
 pyodide-check:  ## The golden games must replay to the same hashes inside Pyodide
 	npm run check --prefix engine/pyodide

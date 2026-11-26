@@ -25,3 +25,6 @@ live/
 # OS
 .DS_Store
 .dev-data/
+
+# RL runs: checkpoints and exported bundles hold model weights (rl/, ADR-012)
+rl/runs/

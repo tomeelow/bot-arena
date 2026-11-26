@@ -217,3 +217,27 @@ def test_status_and_check_run_from_the_command_line(data, monkeypatch):
     (data / ops.GUARD_STATE).write_text(json.dumps({"used": 5}))
     assert ops.main(["status"]) == 0
     assert ops.main(["check"]) == 0
+
+
+def test_the_boss_is_uploaded_as_an_ordinary_pending_version(data):
+    code = b"from arena.builtin.scout import ScoutBot as S\n\nclass Boss(S):\n    pass\n"
+    first = ops.upload_boss(data, SETTINGS, code)
+    second = ops.upload_boss(data, SETTINGS, code + b"\n")
+    with pytest.raises(ValueError, match="bytes"):
+        ops.upload_boss(data, SETTINGS, b"x" * (SETTINGS.upload_max_bytes + 1))
+    conn = connect(data / "arena.db")
+    rows = conn.execute(
+        """SELECT v.id, v.n, v.status, b.name, u.handle, u.github_id FROM bot_versions v
+           JOIN bots b ON b.id = v.bot_id JOIN users u ON u.id = b.owner_id
+           WHERE v.id IN (?, ?) ORDER BY v.id""",
+        (first, second),
+    ).fetchall()
+    assert [tuple(r) for r in rows] == [
+        (first, 1, "pending", "boss", "arena-boss", None),
+        (second, 2, "pending", "boss", "arena-boss", None),
+    ]
+    # From here the worker treats it like anyone's upload: a smoke match, then placement.
+    Worker(conn, Store(data), plays.quick).step()
+    status = conn.execute("SELECT status FROM bot_versions WHERE id = ?", (first,)).fetchone()
+    assert status[0] == "active"
+    assert queued(conn)
