@@ -17,8 +17,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 0 | [Setup & decisions](#phase-0--setup--decisions) | ✅ | — | Repo skeleton, `make verify`, CI, ADRs |
 | 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ✅ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
 | 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | 🟨 | 1 | Local runner, replay format v1, baseline bots, balance report |
-| 3 | [Sandbox](#phase-3--sandbox) | 🟨 | 2 | Jailed runner, adversarial suite passing |
-| 4 | [Match infrastructure](#phase-4--match-infrastructure) | ⬜ | 3 | Upload pipeline, queue, workers, replay store |
+| 3 | [Sandbox](#phase-3--sandbox) | ✅ | 2 | Jailed runner, adversarial suite passing |
+| 4 | [Match infrastructure](#phase-4--match-infrastructure) | 🟨 | 3 | Upload pipeline, queue, workers, replay store |
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | ⬜ | 4 | Rating service, matchmaker, synthetic-ladder validation |
 | 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | ⬜ | 5 | FastAPI, GitHub login, websocket streaming |
 | 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ⬜ | 6 | Ladder, bot pages, viewer with scrubber and logs |
@@ -386,7 +386,7 @@ Every bot here must end in its expected `EndReason`, with the opponent unaffecte
 - [x] Spike measurements recorded; ADR-002 accepted (CPython in bubblewrap with seccomp and cgroups)
 - [x] Every bot gets a fresh jail per match, destroyed at the end and never reused
 - [x] Host-measured CPU time with a time bank and a wall-clock backstop
-- [ ] Adversarial suite (every row above) passing in CI on Linux
+- [x] Adversarial suite (every row above) passing in CI on Linux (PR #4, run 45780771449, x86_64; also arm64 locally)
 - [x] Soak test: 1,000 matches mixing normal and adversarial bots, with zero platform errors, no leaked processes, cgroups or temp files, and flat memory (`docs/benchmarks.md`)
 - [x] CPU-seconds per match measured and recorded (it feeds the Phase 9 capacity budget): ≈ 0.4 s on the dev machine
 
@@ -433,12 +433,12 @@ Replays are stored content-addressed: `replays/<sha[:2]>/<sha>.json.gz`.
 **Deliverable:** the end-to-end match pipeline running locally with N workers.
 
 **Exit criteria**
-- [ ] Schema and migrations
-- [ ] Upload pipeline with in-jail validation and errors visible to the owner
-- [ ] Race-free queue claims: 8 workers and 500 matches, each played exactly once (test)
-- [ ] `kill -9` on a worker mid-match → match voided, no rating change, pairing re-queued (test)
-- [ ] Every stored replay re-simulates to its recorded hash
-- [ ] A platform error can never produce a rated result (test)
+- [x] Schema and migrations (`server/src/arena_server/migrations/`)
+- [x] Upload pipeline with in-jail validation and errors visible to the owner (`sandbox/tests/test_uploads_in_jail.py`)
+- [x] Race-free queue claims: 8 workers and 500 matches, each played exactly once (test)
+- [x] `kill -9` on a worker mid-match → match voided, no rating change, pairing re-queued (test)
+- [x] Every stored replay re-simulates to its recorded hash (the worker checks before recording a result)
+- [x] A platform error can never produce a rated result (tests: platform errors, unreproducible replays and lost leases all void)
 
 ---
 

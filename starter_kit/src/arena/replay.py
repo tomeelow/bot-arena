@@ -54,8 +54,12 @@ def to_dict(record: MatchRecord) -> dict[str, Any]:
     }
 
 
+def encode(record: MatchRecord) -> bytes:
+    return gzip.compress(json.dumps(to_dict(record)).encode(), mtime=0)
+
+
 def save(record: MatchRecord, path: Path) -> None:
-    path.write_bytes(gzip.compress(json.dumps(to_dict(record)).encode(), mtime=0))
+    path.write_bytes(encode(record))
 
 
 def save_logs(record: MatchRecord, path: Path) -> None:
