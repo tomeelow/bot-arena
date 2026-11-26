@@ -1,4 +1,4 @@
-.PHONY: install verify lint typecheck test pyodide-check sandbox-check web-check web-e2e format dev-api
+.PHONY: install verify lint typecheck test pyodide-check sandbox-check deploy-check web-check web-e2e format dev-api
 
 install:  ## Install Python and web dependencies exactly as locked
 	uv sync --all-packages --locked
@@ -6,7 +6,7 @@ install:  ## Install Python and web dependencies exactly as locked
 	npm ci --prefix web
 	cd web && npx playwright install --with-deps chromium
 
-verify: lint typecheck test pyodide-check sandbox-check web-check web-e2e  ## Everything CI runs; must pass before work is called done
+verify: lint typecheck test pyodide-check sandbox-check deploy-check web-check web-e2e  ## Everything CI runs; must pass before work is called done
 
 lint:
 	uv run ruff check .
@@ -26,6 +26,10 @@ sandbox-check:  ## The ranked jail and its adversarial suite, in Linux (needs Do
 	@docker info >/dev/null 2>&1 || { echo "sandbox-check needs Docker running"; exit 1; }
 	docker build -q -f sandbox/Dockerfile -t arena-sandbox .
 	docker run --rm --privileged arena-sandbox pytest -q sandbox/tests
+
+deploy-check:  ## deploy/Caddyfile in Debian 13's Caddy: only the Pages proxy gets through (needs Docker)
+	@docker info >/dev/null 2>&1 || { echo "deploy-check needs Docker running"; exit 1; }
+	./deploy/check-caddy.sh
 
 web-check:
 	npm run check --prefix web

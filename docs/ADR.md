@@ -150,7 +150,7 @@ Measured write contention: queue claims or result writes waiting on locks often 
 
 ## ADR-005 — Hosting: one free-tier VM, free static hosting, free object storage
 
-**Status:** accepted · **Date:** 2026-11-25 · **Terms last checked:** 2026-11-25
+**Status:** superseded in part by ADR-010 (the VM, backups and how the site reaches the API) · **Date:** 2026-11-25 · **Terms last checked:** 2026-11-25
 
 ### Context
 
@@ -323,3 +323,78 @@ Phase 8 runs practice matches in the browser, and their replays must equal the C
 ### What would change our mind
 
 Broad JSPI support could let the host call the player synchronously and drop the page relay. A host that can't serve `.wasm` from our origin would push us towards a CDN, with its origin pinned in the CSP.
+
+---
+
+## ADR-010 — Hosting on a Google Cloud e2-micro, behind a Cloudflare Pages proxy
+
+**Status:** accepted · **Date:** 2026-11-26 · **Terms last checked:** 2026-11-26 · **Supersedes:** ADR-005's VM, backup and topology choices
+
+### Context
+
+Oracle's Always Free A1 shape (ADR-005) can't be had in practice: the owner tried, and free-tier ARM capacity was never available. AWS has no always-free VM for new accounts: credits, then a bill. Google Cloud's free tier still includes a small VM with no end date. Its limits differ from Oracle's in ways that shape the design:
+
+| Google Cloud Free Tier, read 2026-11-26 | Limit |
+|---|---|
+| VM | 1 non-preemptible **e2-micro** a month (counted in hours) in `us-west1`, `us-central1` or `us-east1` |
+| CPU and memory | 2 shared vCPUs at **12.5% each, 25% of a core sustained**; **1 GB** RAM |
+| Disk | **30 GB-months of standard** persistent disk (balanced and SSD disks are billed) |
+| Egress | **1 GB a month** from North America to all destinations except China and Australia |
+| External IP | not charged for the free-tier instance |
+| Cloud Storage | 5 GB-months regional storage (same three regions), 5,000 Class A and 50,000 Class B operations a month |
+| Terms | "no end date", but may change on 30 days' notice; a billing account is required; usage past the limits is billed |
+
+| Cloudflare, read 2026-11-26 | Limit |
+|---|---|
+| Pages static requests | free and unlimited |
+| Pages Functions | count against Workers Free: **100,000 requests a day**, then error 1027 (a hard stop, not a bill); 10 ms CPU per request |
+
+**The scarce resource is egress, not CPU.** Serving the site from the VM would spend the 1 GB on the 13 MB Pyodide runtime within about 75 first visits.
+
+### Decision
+
+- **Cloudflare Pages serves the site.** That covers the static build, Pyodide and `static/_headers` (security headers, plus the practice workers' CSP, which allows `'wasm-unsafe-eval'`).
+- **A Pages Function proxies `/api`, `/auth` and `/ws` to the VM.** It lives in `web/functions/` and `web/src/proxy.ts`. The browser sees one origin (`*.pages.dev`), as the SameSite session cookie and the relative API calls require. The function adds a shared secret, and the VM's Caddy refuses any request without it. `/health` is the one exception.
+- **The VM is one e2-micro running Debian 13.** Caddy uses a free DuckDNS subdomain for TLS. systemd runs `arena-api`, one `arena-worker@1`, `arena-scheduler`, and timers for `ops guard` (every 5 minutes) and `ops backup` (hourly).
+  - Python 3.14 comes from uv, installed under `/usr`, which the jail already mounts read-only. The jail is unchanged.
+  - The worker's cgroup is delegated by systemd (`Delegate=`, `DelegateSubgroup=main`), and `deploy/jail-cgroup.sh` gives the jails a sibling `bots/` subtree. The worker runs as an unprivileged user. A non-root jailed match and a memory bomb were checked in a Debian 13 container with exactly this layout, and the units pass `systemd-analyze verify` on systemd 257.
+- **Backups go to a Cloud Storage bucket in the VM's region, not R2.** Same-region traffic isn't billed as egress, and the VM signs in as its own service account, so there's no storage secret to keep.
+  - Every hour, `ops backup` uploads a `VACUUM INTO` snapshot of the database, but only if it changed, and at least once a day.
+  - Alongside it goes one tar of the code and replay files added since the last run. They're content-addressed, so new files are the only change.
+  - That's at most about 1,500 Class A operations a month. Litestream is not used: continuous WAL shipping would spend the 5,000 monthly operations in days.
+- **The budget guard enforces the egress limit.** `ops guard` reads the default interface's transmit counter, minus what backups uploaded. Once `egress_month_bytes` (800 MB) has gone out in the calendar month, it writes `EGRESS_CAPPED`, and Caddy answers 503 until the 1st. The same guard pauses the ladder when the disk is 85% full, and expires bot logs (14 days) and live frame files (7 days).
+- **The kill switch is a file.** `ops pause` writes `PAUSED`: workers run no bot code and the scheduler queues nothing. Queued matches stay queued, and `ops resume` picks them up again.
+
+### Capacity budget
+
+- **CPU, not binding.** Phase 3 measured ≈ 0.4 CPU-s per match on the dev machine. Allow 2× for the slower shared core, and give matches 0.2 of the 0.25 sustained core at 50% target utilisation. That's 0.2 × 86,400 × 0.5 / 0.8 ≈ **10,800 matches a day**. The VM measurement replaces the dev number once it's taken.
+- **Backup storage, binding.** A stored replay is about 5.4 KB gzipped (median of 145 dev replays). At 1,000 matches a day that's about 2 GB a year, against 5 GB free with room left for snapshots. So **`matches_per_day = 1000`**, in `server/src/arena_server/settings.toml`. Placements and comparisons count towards it.
+- **Memory.** Two bots at 256 MiB plus the worker fit under the worker unit's 640 MB `MemoryMax`. The API (250 MB) and scheduler (150 MB) have their own caps. A 1 GB swap file serves everything except the jails, which have swap turned off.
+- **Egress.** Viewing a replay downloads its frames: about 19 KB gzipped (median), or about 350 KB uncompressed over the live websocket. That's roughly 40,000 replay views or 2,000 live views on 800 MB. Pages Functions' 100,000 requests a day is a second hard stop in front of it.
+
+### Alternatives considered
+
+- **Serving everything from the VM.** Simplest, but the egress would run out as soon as anyone used it.
+- **The API on its own origin, with CORS.** A `*.pages.dev` site and a `*.duckdns.org` API aren't the same site, so the `SameSite=Lax` session cookie wouldn't be sent. Making it work needs `SameSite=None` cookies and CSRF tokens, or a paid domain.
+- **Cloudflare Tunnel instead of a public port.** A named tunnel needs a domain on Cloudflare (a cost). Quick tunnels have random, temporary names.
+- **Litestream to R2.** Every WAL upload from the VM counts as egress, and that adds up fast.
+- **Running the CI sandbox image under Docker on the VM.** It's the exact image the adversarial suite runs in, but dockerd costs memory a 1 GB VM can't spare, and the container would have to run privileged, with the worker as root inside it.
+- **AWS:** free for about 6–12 months on credits, then billed. **Oracle:** capacity was never available.
+
+### Risks to watch
+
+- **Shared-core timing.** The host measures a bot's thinking as CPU time, but the 2 s wall-clock backstop runs in real time. On a quarter of a core, a turn that draws heavily on the time bank could hit the backstop without being over its CPU budget. Measure the wall-to-CPU ratio on the VM first. A fix would change how timeouts count, which is a rule change that needs asking first.
+- **The ephemeral IP changes if the VM is stopped and started** (not on reboot). DuckDNS then has to be updated (RUNBOOK).
+
+### What would change our mind
+
+- Google changing the e2-micro terms.
+- Sustained egress or CPU above the budgets.
+- Any bill above €0.
+
+The next step is the cheapest paid VM, recorded as a new ADR with its cost. The single-VM design and the restore drill make that a move, not a redesign.
+
+### Sources (read 2026-11-26)
+
+- Google: [Free cloud features](https://docs.cloud.google.com/free/docs/free-cloud-features), [vCPUs on shared-core machines](https://docs.cloud.google.com/docs/compute-area/vcpus), [E2 machine types (blog)](https://cloud.google.com/blog/products/compute/google-compute-engine-gets-new-e2-vm-machine-types), [external IP pricing](https://cloud.google.com/vpc/pricing-announce-external-ips)
+- Cloudflare: [Pages Functions pricing](https://developers.cloudflare.com/pages/functions/pricing/), [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [Pages limits](https://developers.cloudflare.com/pages/platform/limits)

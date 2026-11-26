@@ -1,0 +1,21 @@
+# The VM serves only the API. Cloudflare Pages serves the site and proxies /api, /auth and /ws
+# here (web/src/proxy.ts), adding the shared secret, so the VM's 1 GB/month of free egress is
+# spent on API traffic alone (ADR-010). Values come from /etc/arena/caddy.env.
+{$ARENA_HOST} {
+	handle /health {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		@stranger not header X-Arena-Origin {$ARENA_ORIGIN_SECRET}
+		respond @stranger 403
+		# Written by `ops guard` once this month's egress budget is spent.
+		@capped file {
+			root /var/lib/arena
+			try_files /EGRESS_CAPPED
+		}
+		respond @capped "This month's free bandwidth is used up. Back on the 1st." 503
+		reverse_proxy 127.0.0.1:8000 {
+			header_up -X-Arena-Origin
+		}
+	}
+}

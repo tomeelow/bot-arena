@@ -133,10 +133,17 @@ def place(conn: sqlite3.Connection, version_id: int, settings: Settings, rng: Ra
 def top_up(
     conn: sqlite3.Connection, ratings: Ratings, settings: Settings, rng: Random
 ) -> list[int]:
-    """Keep about `queue_target` matches queued, so workers never sit idle."""
+    """Keep about `queue_target` matches queued, so workers never sit idle, and stop for the
+    day once `matches_per_day` have been created (placements and comparisons count too)."""
     queued = conn.execute("SELECT count(*) FROM matches WHERE status = 'queued'").fetchone()[0]
+    today = conn.execute(
+        "SELECT count(*) FROM matches WHERE created_at > datetime('now', '-1 day')"
+    ).fetchone()[0]
     added: list[int] = []
-    while queued + len(added) < settings.queue_target:
+    while (
+        queued + len(added) < settings.queue_target
+        and today + len(added) < settings.matches_per_day
+    ):
         pair = next_pairing(conn, ratings, settings, rng)
         if pair is None:
             break

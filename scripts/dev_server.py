@@ -67,8 +67,7 @@ SPARRING = {
 
 def seed_sparring_partners(conn: sqlite3.Connection) -> None:
     """A second player, so the ladder has someone to pair (one owner never plays itself)."""
-    for anchor in ("random", "greedy", "rush", "turtle", "scout"):
-        bots.builtin_version(conn, anchor)
+    bots.ensure_anchors(conn)
     owner = bots.ensure_user(conn, "sparring", github_id=2)
     for name, code in SPARRING.items():
         bots.submit_version(conn, Store(DATA), bots.create_bot(conn, owner, name), code.encode())

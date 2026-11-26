@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitest/config';
+import type { Plugin } from 'vite';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { headersFor, parseHeaders } from './src/headers.ts';
 
 // src/csp.test.ts checks this still matches SvelteKit's announcer after an upgrade.
 export const ANNOUNCER_STYLE_HASH = 'sha256-S8qMpvofolR8Mpjy4kQvEm7m1q8clzU4dfDH0AmvZjo=';
@@ -12,8 +15,23 @@ const API_PROXY = Object.fromEntries(
 	])
 );
 
+// The production headers (Cloudflare Pages reads static/_headers) in `vite preview` too, so
+// the e2e tests run the practice workers under the CSP they get in production.
+const pagesHeaders: Plugin = {
+	name: 'pages-headers',
+	configurePreviewServer(server) {
+		const rules = parseHeaders(readFileSync('static/_headers', 'utf8'));
+		server.middlewares.use((req, res, next) => {
+			const path = new URL(req.url ?? '/', 'http://preview').pathname;
+			for (const [name, value] of headersFor(rules, path)) res.setHeader(name, value);
+			next();
+		});
+	}
+};
+
 export default defineConfig({
 	plugins: [
+		pagesHeaders,
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
@@ -22,7 +40,7 @@ export default defineConfig({
 			},
 			adapter: adapter(),
 			// Prerendered pages get this as a <meta> tag, with hashes added for SvelteKit's own
-			// bootstrap script. Headers that a meta tag can't carry (frame-ancestors) are Phase 9's.
+			// bootstrap script. Headers that a meta tag can't carry are in static/_headers.
 			csp: {
 				mode: 'hash',
 				directives: {

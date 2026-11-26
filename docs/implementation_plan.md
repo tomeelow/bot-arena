@@ -23,7 +23,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | 🟨 | 5 | FastAPI, GitHub login, websocket streaming |
 | 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ✅ | 6 | Ladder, bot pages, viewer with scrubber and logs |
 | 8 | [Browser practice](#phase-8--browser-practice) | 🟨 | 2, 7 | Pyodide practice mode, cross-runtime determinism |
-| 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | ⬜ | 7 | Live site on free tiers, backups, budget guards, private alpha |
+| 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | 🟨 | 7 | Live site on free tiers, backups, budget guards, private alpha |
 | 10 | [Observability & usage metrics](#phase-10--observability--usage-metrics) | ⬜ | 9 | Public stats page, platform health, alerts |
 | 11 | [The RL boss](#phase-11--the-rl-boss) | ⬜ | 2 (train), 9 (ship) | Self-play boss on the ladder with a model card |
 | 12 | [Launch & polish](#phase-12--launch--polish) | ⬜ | 10, 11 | README, docs, season 1, blog post, demo |
@@ -572,7 +572,7 @@ Names, descriptions and logs render as text. Strict CSP with no inline scripts.
 - **The site assumes one origin for pages and API.** The session cookie is `SameSite=Lax`, and the frontend calls `/api` relatively. The static build and the API have to be served from the same origin (for example Caddy serving `web/build` and proxying `/api`, `/auth` and `/ws`), or this needs a new decision before deploying.
 - **The CSP ships as a `<meta>` tag**, which can't carry `frame-ancestors`. Send it, plus `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy`, as real headers from whatever serves the site.
 - **Practice workers need WebAssembly.** If the site's CSP is sent as a header, it also applies to the practice workers' scripts, so it must allow `'wasm-unsafe-eval'` for them (the `<meta>` tag doesn't reach workers today). Serve `.wasm` as `application/wasm`.
-- **Nothing creates the built-in anchors in production yet.** `bots.builtin_version` is only called by tests and `scripts/dev_server.py`, so a fresh database places new bots against no anchors. Deployment needs a bootstrap step.
+- **Nothing creates the built-in anchors in production yet.** `bots.builtin_version` is only called by tests and `scripts/dev_server.py`, so a fresh database places new bots against no anchors. Deployment needs a bootstrap step. *(Done in Phase 9: `ops bootstrap`, run by every deploy.)*
 
 ---
 
@@ -599,31 +599,39 @@ Names, descriptions and logs render as text. Strict CSP with no inline scripts.
 
 **Goal:** public, costing nothing to run, and easy to restore.
 
-### Topology
-- **Frontend:** free static hosting (Cloudflare Pages or GitHub Pages).
-- **Backend:** one free-tier VM running Caddy (automatic TLS) in front of systemd units: `arena-api` (uvicorn), `arena-worker@1..N`, `arena-scheduler` (matchmaker, lease reaper, rating catch-up).
-- **Backups:** Litestream streams SQLite continuously to free object storage; replays sync nightly with rclone.
-- **Before deploying, re-verify every free tier:** limits, idle-instance reclamation policies, ARM capacity in the chosen region, egress, whether a card is required. Record the date in ADR-005. A domain name is the only optional cost; a free subdomain works.
+### Topology (ADR-010)
+- **Site:** Cloudflare Pages serves the static build, Pyodide included, with the headers in `web/static/_headers`. A Pages Function (`web/functions/`, `web/src/proxy.ts`) proxies `/api`, `/auth` and `/ws` to the VM, adding a shared secret. Pages and API share one origin.
+- **Server:** one Google Cloud **e2-micro** (Debian 13). Caddy holds TLS for a free DuckDNS subdomain and refuses requests without the secret. systemd units in `deploy/systemd/`: `arena-api`, `arena-worker@1`, `arena-scheduler`, and timers for `ops guard` (every 5 minutes) and `ops backup` (hourly).
+- **Backups:** a Cloud Storage bucket in the VM's region (free egress, no keys). Hourly database snapshots are kept 7 days. Tars of new code and replay files are kept for good. `ops restore` and `ops check` make up the drill.
+- **Free tiers re-verified 2026-11-26** and recorded in ADR-010. Oracle (ADR-005) was dropped: A1 capacity was never available.
 
-### Capacity budget (filled in from Phase 3 measurements)
+### Capacity budget
 ```
-cpu_seconds_per_match  = measured in Phase 3
-worker_cores           = cores − 1
-max_matches_per_day    = worker_cores × 86_400 × target_utilisation / cpu_seconds_per_match
+cpu_seconds_per_match  ≈ 0.4 (Phase 3, dev machine; ×2 allowed for the shared core until measured on the VM)
+worker_share           = 0.2 of the e2-micro's 0.25 sustained core
+max_matches_per_day    = 0.2 × 86_400 × 0.5 / 0.8 ≈ 10_800       (CPU: not binding)
+storage_per_match      ≈ 5.4 KB gzipped replay (median of 145)   (backups: 5 GB free)
+matches_per_day        = 1_000  → ≈ 2 GB of replays a year        (binding; settings.toml [budget])
 ```
-On today's Always Free shape (2 OCPUs, ADR-005), `worker_cores` is 1. That number becomes the daily match cap in `config/ladder.toml`. The matchmaker spends it on the most informative pairings first (highest σ).
 
-### Budget guards
-A daily match cap · ranked replays kept, the frame cache evicted LRU, logs expired after N days · a disk-usage alarm · upload, compare and viewer caps · a **kill switch** that pauses the ladder by stopping the scheduler without losing queued matches.
+### Budget guards (`server/src/arena_server/settings.toml` `[budget]`, `ops guard`)
+- A daily match cap (`matches_per_day`) that the scheduler honours.
+- An egress budget (`egress_month_bytes`, 800 MB of the free 1 GB). Once it's spent, Caddy answers 503 until the 1st.
+- The ladder pauses when the disk is 85% full.
+- Bot logs expire after 14 days and live frame files after 7. Replays are kept.
+- The existing upload, compare and viewer caps.
+- The **kill switch**: `ops pause` stops bot execution and scheduling, and queued matches stay queued.
 
 ### CI/CD
-On a PR: `make verify`. On merge to `main`: build `web/` and deploy it to static hosting, then deploy the server to the VM. Secrets live in GitHub Actions secrets. `deploy/RUNBOOK.md` covers deploy, rollback, restore, secret rotation, the kill switch, and how to bump the engine version (which starts a new season).
+- On a PR: `make verify`, which now includes `deploy-check`, a test of the Caddyfile in Debian 13's Caddy.
+- On a green `verify` on `main`: `.github/workflows/deploy.yml` deploys the server over SSH (a forced command that only accepts a commit sha), then publishes `web/` to Pages. It stays off until the repository variable `DEPLOY` is `on`.
+- `deploy/RUNBOOK.md` covers: first setup, deploy, rollback, restore drill, secret rotation, the kill switch, the egress cap, and engine version bumps.
 
 **Exit criteria**
-- [ ] Site live on free tiers; billing dashboards checked and showing €0
-- [ ] Restore drill: a fresh VM rebuilt from backups in under an hour, with the ratings rebuild matching
-- [ ] Capacity budget computed from measurements, with caps in config
-- [ ] Kill switch tested
+- [ ] Site live on free tiers; billing dashboards checked and showing €0 (needs the owner's Google Cloud and Cloudflare accounts: RUNBOOK "First setup")
+- [ ] Restore drill: a fresh VM rebuilt from backups in under an hour, with the ratings rebuild matching. `ops restore` + `ops check` pass on a test ladder (`server/tests/test_ops.py`); the timed drill on a real VM is still to do.
+- [x] Capacity budget computed from measurements, with caps in config (above; `[budget]` in settings.toml; re-measure CPU per match on the VM)
+- [ ] Kill switch tested. `ops pause` stops bots and scheduling without losing queued matches (`server/tests/test_ops.py`); still to try on the live VM.
 - [ ] Private alpha: 3–5 outside people uploaded bots, and their issues were collected and triaged
 
 ---

@@ -1,0 +1,16 @@
+[Unit]
+Description=Bot Arena backup to Cloud Storage
+
+[Service]
+Type=oneshot
+User=arena
+Group=arena
+EnvironmentFile=/etc/arena/backup.env
+Environment=ARENA_DATA_DIR=/var/lib/arena
+ExecStart=/opt/arena/venv/bin/python -m arena_server.ops backup
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/arena
