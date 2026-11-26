@@ -94,3 +94,20 @@ def test_engine_allows_a_seeded_rng() -> None:
 def test_purity_bans_are_scoped_to_the_engine() -> None:
     result = ruff_check("import time\n\ntime.monotonic()\n", SERVER_PROBE)
     assert result.returncode == 0, result.stdout
+
+
+def test_rl_training_stays_out_of_the_workspace() -> None:
+    """rl/ installs numpy, so it must never become a workspace member (the server syncs
+    every member into the venv that the jail binds) and nothing else may import it."""
+    root = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert "rl" not in root["tool"]["uv"]["workspace"]["members"]
+    imports = []
+    for member in root["tool"]["uv"]["workspace"]["members"]:
+        for path in (ROOT / member).rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text())):
+                names = (
+                    [a.name for a in node.names] if isinstance(node, ast.Import)
+                    else [node.module or ""] if isinstance(node, ast.ImportFrom) else []
+                )  # fmt: skip
+                imports += [f"{path}: {n}" for n in names if n.split(".")[0] == "arena_rl"]
+    assert imports == []

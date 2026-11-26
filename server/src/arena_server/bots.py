@@ -8,6 +8,7 @@ from .store import CODE, PY, Store
 
 ARENA_ACCOUNT = "arena"  # owns the built-in bots, which play on the ladder as anchors
 ANCHORS = ("random", "greedy", "rush", "turtle", "scout")
+BOSS_ACCOUNT, BOSS_BOT = "arena-boss", "boss"  # the RL boss: an uploaded bot (ops upload-boss)
 
 
 def ensure_user(conn: sqlite3.Connection, handle: str, github_id: int | None = None) -> int:

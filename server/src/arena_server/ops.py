@@ -45,6 +45,22 @@ def bootstrap(data: Path) -> list[int]:
         return bots.ensure_anchors(conn)
 
 
+def upload_boss(data: Path, settings: Settings, code: bytes) -> int:
+    """Submit the RL boss (rl/, ADR-012) as a new pending version of the `arena-boss`
+    account's bot. From here it is any upload: the same cap, the same smoke match in the
+    jail, the same placement and ladder. Only the login differs, as the account has no
+    GitHub id, like the built-in bots' `arena` account."""
+    if not 0 < len(code) <= settings.upload_max_bytes:
+        raise ValueError(f"a bot is 1 to {settings.upload_max_bytes} bytes, not {len(code)}")
+    with closing(connect(data / "arena.db")) as conn:
+        owner = bots.ensure_user(conn, bots.BOSS_ACCOUNT)
+        row = conn.execute(
+            "SELECT id FROM bots WHERE owner_id = ? AND name = ?", (owner, bots.BOSS_BOT)
+        ).fetchone()
+        bot = row[0] if row else bots.create_bot(conn, owner, bots.BOSS_BOT)
+        return bots.submit_version(conn, Store(data), bot, code)
+
+
 def pause(data: Path, reason: str) -> None:
     (data / PAUSED).write_text(f"{datetime.now(UTC).isoformat()} {reason}\n")
     log.warning("ladder paused: %s", reason)
@@ -291,6 +307,8 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("backup", help="upload changes to ARENA_BACKUP_BUCKET (a timer runs it)")
     commands.add_parser("restore", help="rebuild an empty data directory from the bucket")
     commands.add_parser("check", help="ratings rebuild and stored files are consistent")
+    commands.add_parser("upload-boss", help="submit the RL boss's .py file (rl/export.py)")
+    commands.choices["upload-boss"].add_argument("path", type=Path)
     args = parser.parse_args(argv)
 
     data = Path(os.environ["ARENA_DATA_DIR"])
@@ -328,6 +346,9 @@ def main(argv: list[str] | None = None) -> int:
                 log.error("%s", p)
             log.info("check: %s", f"{len(problems)} problems" if problems else "ok")
             return 1 if problems else 0
+        case "upload-boss":
+            version = upload_boss(data, settings, args.path.read_bytes())
+            log.info("boss version %d pending: a worker validates it in the jail", version)
     return 0
 
 

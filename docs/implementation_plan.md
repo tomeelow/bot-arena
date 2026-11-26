@@ -25,7 +25,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 8 | [Browser practice](#phase-8--browser-practice) | 🟨 | 2, 7 | Pyodide practice mode, cross-runtime determinism |
 | 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | 🟨 | 7 | Live site on free tiers, backups, budget guards, private alpha |
 | 10 | [Observability & usage metrics](#phase-10--observability--usage-metrics) | 🟨 | 9 | Public stats page, platform health, alerts |
-| 11 | [The RL boss](#phase-11--the-rl-boss) | ⬜ | 2 (train), 9 (ship) | Self-play boss on the ladder with a model card |
+| 11 | [The RL boss](#phase-11--the-rl-boss) | 🟨 | 2 (train), 9 (ship) | Self-play boss on the ladder with a model card |
 | 12 | [Launch & polish](#phase-12--launch--polish) | ⬜ | 10, 11 | README, docs, season 1, blog post, demo |
 
 **Parallel track:** Phase 11 training only needs the engine and the built-in bots (Phases 1–2), so it can run offline any time from Phase 3 on. It sits late in the table because it ships onto a working ladder.
@@ -118,7 +118,7 @@ Frontend: SvelteKit with the static adapter, in `web/` (ADR-006).
 
 ### Guardrails as code, from day one
 - **Engine purity:** ruff `banned-api` in `engine/pyproject.toml` bans clocks, I/O, network, concurrency and the module-level `random` functions. Ruff can't see builtins, so an AST test bans `hash()`, `id()`, `open()` and `input()`. `tests/test_guardrails.py` proves the bans fire, so loosening them breaks the build.
-- **Import contracts (import-linter):** `arena_engine` imports nothing from the rest of the repo. More contracts are added once the packages they guard exist: `server` never imports `rl` (Phase 11), and `sandbox` host code never imports bot code (Phase 3).
+- **Import contracts (import-linter):** `arena_engine` imports nothing from the rest of the repo. More contracts are added once the packages they guard exist: `server` never imports `rl` (Phase 11: `rl/` is kept out of the workspace, which `tests/test_guardrails.py` checks), and `sandbox` host code never imports bot code (Phase 3).
 - `.gitignore` covers `*.db`, `replays/`, `uploads/`, `*.npz`, `.env`.
 
 ### Architecture Decision Records (`docs/ADR.md`)
@@ -678,17 +678,17 @@ Match duration · distribution of end reasons · **`platform_error` rate (target
 
 **Goal:** a self-play bot strong enough to be worth beating, documented honestly, playing under exactly the same rules as everyone else.
 
-### Training (offline, in `rl/`; PyTorch is a dependency only here)
-- **Environment:** the engine wrapped as a two-player PettingZoo `ParallelEnv`, using the **same `observe()`** bots get, so there's no gap between training and serving observations.
-- **Encoding:** grid channels (terrain, own units by kind, visible enemies, deposits, visibility mask, cargo) plus scalars (turn, crystals). **Actions:** a per-cell action map masked to your own units' legal orders, which handles any number of units.
-- **Algorithm:** PPO with a small convolutional net, trained against a **league**: the latest policy, a pool of past checkpoints, and the scripted bots. The league prevents strategy collapse and forgetting.
+### Training (offline, in `rl/`; numpy is a dependency only here; ADR-012)
+- **Environment:** the engine wrapped as a two-seat environment shaped like a PettingZoo `ParallelEnv` (no dependency), using the **same `observe()`** bots get, so there's no gap between training and serving observations.
+- **Policy (ADR-012, departing from the per-cell action map first sketched here):** every 4 turns a small MLP picks the Core's build and the soldiers' stance (defend / attack / hunt) from scaled features of the observation and the bot's memory. Unit movement, mining and adjacent fights use the shared `arena.builtin.tactics`.
+- **Algorithm:** PPO with hand-written numpy gradients (checked against finite differences), trained against a **league**: the scripted bots, a pool of past checkpoints, and the current policy. The league prevents strategy collapse and forgetting.
 - **Progress is measured against fixed opponents:** every N updates, play the frozen scripted baselines on fixed seed pairs. Self-play Elo inflates and is never the headline.
 - **Engine speed:** if throughput limits training, profile first. A batched engine for training is allowed only if differential tests on recorded replays show it matches the reference engine.
 - **Compute:** a dev machine or free notebook GPUs (check the current terms). Never the production VM.
 
 ### Shipping
-- Weights exported to `.npz` with a **pure-numpy** forward pass. Must fit inside the per-turn CPU budget with margin (p99 in the production sandbox) and inside the upload size cap.
-- Uploaded through the **normal pipeline** under a dedicated `arena-boss` account. Same jail, same limits, same observations.
+- Weights written into a single **pure-Python** bot file (numpy isn't in the jail, ADR-012). Must fit inside the per-turn CPU budget with margin (p99 in the production sandbox) and inside the upload size cap.
+- Uploaded through the **normal pipeline** (`ops upload-boss`) under a dedicated `arena-boss` account. Same jail, same limits, same observations.
 - Weights are attached to a GitHub release, not committed.
 
 ### Model card (`docs/boss_model_card.md`)
@@ -698,11 +698,11 @@ What it is · training setup (algorithm, network size, environment steps, comput
 Boss vs each scripted baseline · P(boss stronger than the best human bot) · **days until the first human bot is rated above the boss** · number of human bots above each anchor.
 
 **Exit criteria**
-- [ ] RL env wrapper uses the engine's `observe()`; tests show it matches the CLI runner's results
-- [ ] Training reproducible from config and seed (remaining nondeterminism documented)
-- [ ] Boss beats every scripted baseline with a 95% CI lower bound above 50%
-- [ ] Inference p99 within the turn budget in the production sandbox; bundle within the upload cap
-- [ ] Uploaded through the normal pipeline; model card published
+- [x] RL env wrapper uses the engine's `observe()`; tests show it matches the CLI runner's results (`rl/tests/test_env.py`: same result and final state, bit for bit)
+- [x] Training reproducible from config and seed (remaining nondeterminism documented): `rl/tests/test_train.py`, model card
+- [x] Boss beats every scripted baseline with a 95% CI lower bound above 50% (lowest: turtle, 72.9%, over 400 held-out games; model card)
+- [ ] Inference p99 within the turn budget in the production sandbox; bundle within the upload cap. Measured in the ranked jail's image (`scripts/boss_timing.py`): p99 1 ms of 100, bundle 152 KB of 2 MB. Still to repeat on the live VM.
+- [ ] Uploaded through the normal pipeline; model card published. `ops upload-boss` and `docs/boss_model_card.md` are ready; the upload to the live server and the GitHub release with the weights are still to do.
 
 ---
 

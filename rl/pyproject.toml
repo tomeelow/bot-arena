@@ -1,0 +1,30 @@
+# Offline training for the boss (Phase 11, ADR-012). Not a workspace member on purpose:
+# `uv sync --all-packages` on the server never installs numpy, so it never reaches the
+# production venv or the jail. The shipped boss is one pure-Python file (src/arena_rl/boss.py).
+[project]
+name = "arena-rl"
+version = "0.1.0"
+description = "Self-play training, evaluation and export of the Bot Arena boss."
+requires-python = ">=3.14"
+dependencies = ["arena-engine", "arena-starter-kit", "numpy==2.3.5"]
+
+[tool.uv.sources]
+arena-engine = { path = "../engine", editable = true }
+arena-starter-kit = { path = "../starter_kit", editable = true }
+
+[dependency-groups]
+dev = ["pyright[nodejs]>=1.1.414", "pytest>=9.2.0"]
+
+[build-system]
+requires = ["uv_build>=0.11.20,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-config", "--strict-markers"]
