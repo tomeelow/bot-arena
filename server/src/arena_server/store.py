@@ -29,6 +29,14 @@ class Store:
     def _path(self, kind: str, digest: str, suffix: str) -> Path:
         return self.root / kind / digest[:2] / f"{digest}{suffix}"
 
+    def live(self, match_id: int) -> Path:
+        """Frames of a match as it is played; also kept afterwards, ending in its result."""
+        return self.root / "live" / f"{match_id}.jsonl"
+
+    def logs(self, match_id: int) -> Path:
+        """Bot logs of a match. Private: only each bot's owner may read their seat's."""
+        return self.root / "logs" / f"{match_id}.json"
+
 
 CODE, REPLAYS = "code", "replays"
 PY, REPLAY = ".py", ".json.gz"

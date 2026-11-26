@@ -195,18 +195,21 @@ def run_match(
     *,
     opener: Opener = open_channel,
     enforce: bool = False,
+    on_turn: Callable[[GameState], None] | None = None,
 ) -> MatchRecord:
     """Play one match. `players` are bot specs: a .py path or `builtin:NAME`.
 
     By default limits only warn. With `enforce`, as in ranked play, a bot that overruns its
     setup budget or empties its time bank loses on time, and the wall-clock backstop is the
-    ranked one."""
+    ranked one. `on_turn` sees every state as it happens, from turn 0: live spectating."""
     rules = rules or Rules()
     limits = limits or Limits.load()
     turn_wait = (limits.turn_backstop_ms if enforce else limits.local_backstop_ms) / 1000
     init_wait = turn_wait + limits.init_ms / 1000 if enforce else turn_wait
     record = MatchRecord(seed, rules, players, logs=([], []))
     state = new_game(rules, seed)
+    if on_turn:
+        on_turn(state)
     channels: list[Channel] = []
     budget = _Budget(limits)
     try:
@@ -250,6 +253,8 @@ def run_match(
             record.think_ms.append((ms[0], ms[1]))
             result = step(state, {0: orders[0], 1: orders[1]})
             state, events = result.state, result.events
+            if on_turn:
+                on_turn(state)
         record.result = _result(state, failures)
     finally:
         tails = [c.close() for c in channels] + ["", ""]

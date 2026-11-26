@@ -24,6 +24,15 @@ class Settings:
     placement_seed_pairs: int
     placement_priority: int
     queue_target: int
+    upload_max_bytes: int
+    uploads_per_day: int
+    comparisons_per_day: int
+    compare_max_seed_pairs: int
+    viewers_per_match: int
+    viewers_total: int
+    session_max_age_s: int
+    live_poll_s: float
+    live_wait_s: float
 
     @classmethod
     def load(cls) -> Settings:
