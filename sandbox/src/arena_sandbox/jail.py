@@ -12,13 +12,14 @@ import os
 import shutil
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from arena.limits import Limits
 from arena.runner import Channel, Failure, MatchRecord, ProcessChannel, Reply, run_match
-from arena_engine import Rules
+from arena_engine import GameState, Rules
 
 NOBODY = "65534"
 BOT_PATH = "/bot/main.py"
@@ -144,6 +145,7 @@ def ranked_match(
     config: JailConfig | None = None,
     rules: Rules | None = None,
     limits: Limits | None = None,
+    on_turn: Callable[[GameState], None] | None = None,
 ) -> MatchRecord:
     """A match with both bots jailed and every limit enforced. An exception out of here is a
     platform failure: the caller voids the match instead of rating it."""
@@ -152,4 +154,4 @@ def ranked_match(
     def opener(spec: str, limits: Limits) -> Channel:
         return JailChannel(spec, jail, limits)
 
-    return run_match(players, seed, rules, limits, opener=opener, enforce=True)
+    return run_match(players, seed, rules, limits, opener=opener, enforce=True, on_turn=on_turn)

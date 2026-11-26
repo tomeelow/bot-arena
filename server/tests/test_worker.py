@@ -70,7 +70,7 @@ def test_a_platform_error_voids_the_match_and_never_rates_it(db, store):
         db, "ranked", (bots.builtin_version(db, "rush"), bots.builtin_version(db, "greedy")), seed=1
     )
 
-    def broken_platform(players, seed, rules):
+    def broken_platform(players, seed, rules, on_turn):
         raise OSError("disk full")
 
     Worker(db, store, broken_platform).step()
@@ -84,7 +84,7 @@ def test_a_replay_that_does_not_reproduce_is_never_rated(db, store):
         db, "ranked", (bots.builtin_version(db, "rush"), bots.builtin_version(db, "greedy")), seed=2
     )
 
-    def tampered(players, seed, rules):
+    def tampered(players, seed, rules, on_turn):
         record = plays.local(players, seed, rules)
         record.orders[0] = ([], [])  # the stored orders no longer lead to the final state
         return record

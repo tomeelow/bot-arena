@@ -20,7 +20,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 3 | [Sandbox](#phase-3--sandbox) | ✅ | 2 | Jailed runner, adversarial suite passing |
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ✅ | 3 | Upload pipeline, queue, workers, replay store |
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | 🟨 | 4 | Rating service, matchmaker, synthetic-ladder validation |
-| 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | ⬜ | 5 | FastAPI, GitHub login, websocket streaming |
+| 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | 🟨 | 5 | FastAPI, GitHub login, websocket streaming |
 | 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ⬜ | 6 | Ladder, bot pages, viewer with scrubber and logs |
 | 8 | [Browser practice](#phase-8--browser-practice) | ⬜ | 2, 7 | Pyodide practice mode, cross-runtime determinism |
 | 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | ⬜ | 7 | Live site on free tiers, backups, budget guards, private alpha |
@@ -534,11 +534,11 @@ GET  /health
 - **Caps:** uploads and comparisons per user per day; concurrent websocket viewers per match and overall (all in config).
 
 **Exit criteria**
-- [ ] Endpoints with Pydantic schemas; OpenAPI published
-- [ ] GitHub login works; only id and handle are stored
-- [ ] Upload and compare rate limits enforced (tests)
-- [ ] Two clients watch the same live match, and a late joiner catches up from turn 0
-- [ ] The logs endpoint refuses non-owners (test)
+- [x] Endpoints with Pydantic schemas; OpenAPI published
+- [ ] GitHub login works; only id and handle are stored (flow, cookies and storage tested against a fake GitHub; needs a real OAuth app to confirm)
+- [x] Upload and compare rate limits enforced (tests)
+- [x] Two clients watch the same live match, and a late joiner catches up from turn 0
+- [x] The logs endpoint refuses non-owners (test)
 
 ---
 

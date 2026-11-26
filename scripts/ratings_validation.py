@@ -32,7 +32,7 @@ from arena_server.queue import immediate
 from arena_server.ratings import Rating, Ratings, rated_results, stored
 from arena_server.settings import Settings
 from arena_server.store import Store
-from arena_server.worker import Worker
+from arena_server.worker import OnTurn, Worker
 
 log = logging.getLogger("validation")
 OUT = Path(__file__).resolve().parent.parent / "docs" / "ratings_validation.md"
@@ -102,8 +102,10 @@ def bins(
     return rows
 
 
-def play_local(players: tuple[str, str], seed: int, rules: Rules | None) -> MatchRecord:
-    return run_match(players, seed, rules)
+def play_local(
+    players: tuple[str, str], seed: int, rules: Rules | None, on_turn: OnTurn | None
+) -> MatchRecord:
+    return run_match(players, seed, rules, on_turn=on_turn)
 
 
 def run_ladder(settings: Settings, ratings: Ratings, rng: Random, tmp: Path):

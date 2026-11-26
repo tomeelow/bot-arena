@@ -13,8 +13,8 @@ ADVERSARIAL = Path(__file__).parent.parent / "adversarial"
 FINE = b"from arena import Bot\n\nclass Fine(Bot):\n    def act(self, obs):\n        return []\n"
 
 
-def jailed(players, seed, rules):
-    return ranked_match(players, seed, rules=rules)
+def jailed(players, seed, rules, on_turn):
+    return ranked_match(players, seed, rules=rules, on_turn=on_turn)
 
 
 @pytest.mark.parametrize(

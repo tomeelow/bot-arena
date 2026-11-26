@@ -6,6 +6,7 @@ A match is recorded only after its replay is stored and re-simulates to the reco
 state. Anything that goes wrong on our side voids the match: never a rated result.
 """
 
+import json
 import logging
 import os
 import socket
@@ -19,9 +20,9 @@ from random import Random
 from arena.protocol import truncate
 from arena.replay import encode, load
 from arena.runner import Failure, MatchRecord
-from arena_engine import ENGINE_VERSION, Rules
+from arena_engine import ENGINE_VERSION, GameState, Rules
 
-from . import bots, ladder, queue
+from . import bots, frames, ladder, queue
 from .db import connect, migrate
 from .ratings import Ratings
 from .settings import Settings
@@ -29,7 +30,8 @@ from .store import CODE, PY, REPLAY, REPLAYS, Store
 
 log = logging.getLogger("arena.worker")
 
-type Play = Callable[[tuple[str, str], int, Rules | None], MatchRecord]
+type OnTurn = Callable[[GameState], None]
+type Play = Callable[[tuple[str, str], int, Rules | None, OnTurn | None], MatchRecord]
 BOT_FAULTS = {f.value for f in Failure}
 SMOKE_OPPONENT = "builtin:random"
 
@@ -62,7 +64,7 @@ class Worker:
         """A short smoke match against builtin:random, in the jail. A bot that fails it
         (crash, timeout, memory, bad output) is rejected and its owner sees why."""
         rules = Rules(max_turns=self.settings.smoke_turns)
-        record = self.play((self.spec(code), SMOKE_OPPONENT), version_id, rules)
+        record = self.play((self.spec(code), SMOKE_OPPONENT), version_id, rules, None)
         result = record.result
         if (result.reason in BOT_FAULTS and result.winner != 0) or result.reason == "both_failed":
             detail = f"{result.reason}: {result.detail}\n{record.stderr[0]}".strip()
@@ -74,17 +76,27 @@ class Worker:
             log.info("version %d active, %d placement matches queued", version_id, len(placed))
 
     def play_claim(self, claim: queue.Claim) -> None:
+        live: LiveFile | None = None
         try:
             if claim.engine_version != ENGINE_VERSION:
                 raise RuntimeError(f"queued for engine {claim.engine_version}")
             players = (self.spec(claim.codes[0]), self.spec(claim.codes[1]))
-            record = self.play(players, claim.seed, None)
+            live = LiveFile(
+                self.store.live(claim.match_id), bots.describe(self.conn, claim.version_ids)
+            )
+            record = self.play(players, claim.seed, None, live.turn)
             replay = self.store.put(REPLAYS, encode(record), REPLAY)
             load(self.store.path(REPLAYS, replay, REPLAY))  # re-simulates; raises on mismatch
+            logs = self.store.logs(claim.match_id)
+            logs.parent.mkdir(parents=True, exist_ok=True)
+            logs.write_text(json.dumps({"0": record.logs[0], "1": record.logs[1]}))
         except Exception as e:
             log.exception("platform_error in match %d", claim.match_id)
             queue.void(self.conn, claim.match_id, f"platform_error: {e!r}"[:500])
+            if live:
+                live.close({"type": "void"})
             return
+        live.close(frames.end(record.result))
         if queue.finish(
             self.conn, claim.match_id, self.worker_id, record.result, replay, self.ratings
         ):
@@ -117,8 +129,10 @@ class Worker:
 def main() -> None:
     from arena_sandbox import ranked_match
 
-    def play(players: tuple[str, str], seed: int, rules: Rules | None) -> MatchRecord:
-        return ranked_match(players, seed, rules=rules)
+    def play(
+        players: tuple[str, str], seed: int, rules: Rules | None, on_turn: OnTurn | None
+    ) -> MatchRecord:
+        return ranked_match(players, seed, rules=rules, on_turn=on_turn)
 
     data = Path(os.environ["ARENA_DATA_DIR"])
     conn = connect(data / "arena.db")
@@ -129,3 +143,26 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+class LiveFile:
+    """Appends a match's frames as it is played. Viewers tail this file (api.py)."""
+
+    def __init__(self, path: Path, players: list[dict[str, object]]) -> None:
+        self.path = path
+        self.players = players
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.file = path.open("w")
+
+    def turn(self, state: GameState) -> None:
+        if state.turn == 0:
+            self._write(frames.header(state, self.players))
+        self._write(frames.frame(state))
+
+    def close(self, last: dict[str, object]) -> None:
+        self._write(last)
+        self.file.close()
+
+    def _write(self, line: dict[str, object]) -> None:
+        self.file.write(json.dumps(line, separators=(",", ":")) + "\n")
+        self.file.flush()

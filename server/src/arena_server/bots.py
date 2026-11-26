@@ -18,6 +18,19 @@ def ensure_user(conn: sqlite3.Connection, handle: str, github_id: int | None = N
         return conn.execute("SELECT id FROM users WHERE handle = ?", (handle,)).fetchone()[0]
 
 
+def login_user(conn: sqlite3.Connection, github_id: int, handle: str) -> int:
+    """The user for a GitHub account, created on first login. A GitHub id and handle are all
+    we keep; a renamed account keeps its user and gets the new handle."""
+    with immediate(conn):
+        row = conn.execute("SELECT id FROM users WHERE github_id = ?", (github_id,)).fetchone()
+        if row:
+            conn.execute("UPDATE users SET handle = ? WHERE id = ?", (handle, row[0]))
+            return row[0]
+        return conn.execute(
+            "INSERT INTO users (handle, github_id) VALUES (?, ?) RETURNING id", (handle, github_id)
+        ).fetchone()[0]
+
+
 def create_bot(conn: sqlite3.Connection, owner_id: int, name: str) -> int:
     with immediate(conn):
         return conn.execute(
@@ -92,3 +105,20 @@ def _add_version(conn: sqlite3.Connection, bot_id: int, code: str, status: str) 
                 status,
             ),
         ).fetchone()[0]
+
+
+def describe(conn: sqlite3.Connection, version_ids: tuple[int, ...]) -> list[dict[str, object]]:
+    """Who plays in each seat, as the viewer and the match page show it."""
+    players: list[dict[str, object]] = []
+    for seat, version in enumerate(version_ids):
+        row = conn.execute(
+            """SELECT b.id, b.name, u.handle, v.n FROM bot_versions v
+               JOIN bots b ON b.id = v.bot_id JOIN users u ON u.id = b.owner_id
+               WHERE v.id = ?""",
+            (version,),
+        ).fetchone()
+        players.append(
+            {"seat": seat, "version_id": version, "bot_id": row[0], "bot": row[1],
+             "owner": row[2], "version": row[3]}
+        )  # fmt: skip
+    return players

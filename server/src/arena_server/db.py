@@ -6,8 +6,9 @@ from pathlib import Path
 
 
 def connect(path: Path) -> sqlite3.Connection:
-    """A connection in autocommit mode: every write says where its transaction begins."""
-    conn = sqlite3.connect(path, timeout=30, autocommit=True)
+    """A connection in autocommit mode: every write says where its transaction begins. The API
+    may hand a request's connection between threads, but never shares one between requests."""
+    conn = sqlite3.connect(path, timeout=30, autocommit=True, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")

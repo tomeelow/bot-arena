@@ -21,6 +21,7 @@ class Entry:
     version_id: int
     owner_id: int
     handle: str
+    bot_id: int
     bot: str
     rating: Rating
     pending: int  # queued or running matches
@@ -45,7 +46,8 @@ def entries(conn: sqlite3.Connection, ratings: Ratings) -> list[Entry]:
         )
     )
     rows = conn.execute(
-        """SELECT v.id, v.parent_id, b.owner_id, u.handle, b.name FROM bot_versions v
+        """SELECT v.id, v.parent_id, b.owner_id, u.handle, b.id AS bot_id, b.name
+           FROM bot_versions v
            JOIN bots b ON b.id = v.bot_id JOIN users u ON u.id = b.owner_id
            WHERE v.status = 'active' ORDER BY v.id"""
     ).fetchall()
@@ -54,6 +56,7 @@ def entries(conn: sqlite3.Connection, ratings: Ratings) -> list[Entry]:
             r["id"],
             r["owner_id"],
             r["handle"],
+            r["bot_id"],
             r["name"],
             table.get(r["id"]) or ratings.prior(table.get(r["parent_id"])),
             pending[r["id"]],

@@ -4,6 +4,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
+import arena_server
 import plays
 from arena.replay import load
 from arena.runner import Result
@@ -16,6 +17,7 @@ from arena_server.worker import Worker
 from helpers import must_claim
 
 DRAW = Result(None, "turn_limit", 5)
+MIGRATIONS = Path(arena_server.__file__).parent / "migrations"
 RATINGS = Ratings(Settings.load())
 
 
@@ -24,7 +26,8 @@ def pair(db):
 
 
 def test_migrations_apply_once(db):
-    assert migrate(db) == 1
+    newest = max(int(f.name.split("_")[0]) for f in MIGRATIONS.glob("*.sql"))
+    assert migrate(db) == newest
     tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"users", "bots", "bot_versions", "matches", "match_players", "results"} <= tables
 
