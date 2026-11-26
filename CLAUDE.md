@@ -72,7 +72,9 @@ Everything that comes from a bot is hostile: its code, its output, its timing an
 - Everything that crosses the boundary is untrusted input. Parse it on the host with a strict schema, size limits and a turn-number check. The harness runs inside the jail, so it is untrusted too.
 - **The host measures time; the bot never reports it.** Per-turn CPU time comes from host-side accounting, with a time bank, plus a wall-clock backstop, because a sleeping bot uses no CPU.
 - **Import allowlists are a UX feature, not a security boundary.** The jail is the boundary.
-- **Pyodide is not a sandbox on its own.** `import js` reaches the host JS runtime. On the server, Pyodide runs under a runtime with every permission denied except reading its own distribution, inside the OS jail.
+- **Ranked bots run as CPython in bubblewrap** behind a seccomp deny-list and a cgroup per bot (ADR-002, `sandbox/`). Everything in the jail except `/tmp` is read-only.
+- **The jail starts with an empty environment.** bubblewrap's own init process is visible inside the jail at `/proc/1/environ`, so anything in the worker's environment would leak to the bot. The adversarial suite caught exactly this once.
+- **Pyodide is not a sandbox.** `import js` reaches the host JS runtime, so Pyodide only ever runs a player's own code in their own browser.
 - Any change to the jail, the harness, the protocol or the limits has to pass the adversarial suite (`sandbox/adversarial/`). A new escape idea gets a new adversarial bot first, then the fix.
 
 ### Determinism

@@ -17,7 +17,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 0 | [Setup & decisions](#phase-0--setup--decisions) | ✅ | — | Repo skeleton, `make verify`, CI, ADRs |
 | 1 | [Game rules & engine](#phase-1--game-rules--deterministic-engine) | ✅ | 0 | `GAME_RULES.md` v1, pure deterministic engine, property tests |
 | 2 | [Bot API, starter kit, built-in bots](#phase-2--bot-api-starter-kit--built-in-bots) | 🟨 | 1 | Local runner, replay format v1, baseline bots, balance report |
-| 3 | [Sandbox](#phase-3--sandbox) | ⬜ | 2 | Jailed runner, adversarial suite passing |
+| 3 | [Sandbox](#phase-3--sandbox) | 🟨 | 2 | Jailed runner, adversarial suite passing |
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ⬜ | 3 | Upload pipeline, queue, workers, replay store |
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | ⬜ | 4 | Rating service, matchmaker, synthetic-ladder validation |
 | 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | ⬜ | 5 | FastAPI, GitHub login, websocket streaming |
@@ -318,6 +318,8 @@ Build the smallest possible runner for each candidate and measure it **on the ta
 
 Measure for each: cold start per bot, per-turn round-trip overhead, memory per bot, whether numpy is available, how it does against the adversarial suite, and how much operational work it takes. The default leaning is **A**, because of parity with practice, but the measurements decide. With any candidate, the OS layer (namespaces, cgroups, read-only fs, empty env, non-root) is mandatory.
 
+**Decided 2026-11-26: B.** Pyodide cost 40× the start-up, 11× the memory and 2.6× the CPU per turn. The measurements and reasoning are in ADR-002.
+
 ### Limits (`config/limits.toml`, starting proposals)
 ```toml
 [bot]
@@ -381,12 +383,12 @@ Every bot here must end in its expected `EndReason`, with the opponent unaffecte
 **Deliverable:** a jailed bot runner behind the same harness protocol, plus the adversarial suite in CI.
 
 **Exit criteria**
-- [ ] Spike measurements recorded; ADR-002 accepted
-- [ ] Every bot gets a fresh jail per match, destroyed at the end and never reused
-- [ ] Host-measured CPU time with a time bank and a wall-clock backstop
+- [x] Spike measurements recorded; ADR-002 accepted (CPython in bubblewrap with seccomp and cgroups)
+- [x] Every bot gets a fresh jail per match, destroyed at the end and never reused
+- [x] Host-measured CPU time with a time bank and a wall-clock backstop
 - [ ] Adversarial suite (every row above) passing in CI on Linux
-- [ ] Soak test: 1,000 matches mixing normal and adversarial bots, with zero platform errors, no leaked processes, cgroups or temp files, and flat memory
-- [ ] CPU-seconds per match measured and recorded (it feeds the Phase 9 capacity budget)
+- [x] Soak test: 1,000 matches mixing normal and adversarial bots, with zero platform errors, no leaked processes, cgroups or temp files, and flat memory (`docs/benchmarks.md`)
+- [x] CPU-seconds per match measured and recorded (it feeds the Phase 9 capacity budget): ≈ 0.4 s on the dev machine
 
 ---
 

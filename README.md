@@ -8,7 +8,7 @@ A programming game: write a Python bot, upload it, and it plays other people's b
 
 ## Development
 
-Requires [uv](https://docs.astral.sh/uv/) and Node.js 24+ (CI uses 26 LTS, from `web/.nvmrc`).
+Requires [uv](https://docs.astral.sh/uv/), Node.js 24+ (CI uses 26 LTS, from `web/.nvmrc`) and a running Docker, for the sandbox suite.
 
 ```bash
 make install
@@ -24,7 +24,7 @@ make verify
 |---|---|
 | `engine/` | The deterministic game engine. Pure Python, no dependencies; runs on CPython and Pyodide. |
 | `starter_kit/` | What players install: the bot API, the built-in bots and the `arena` CLI. |
-| `sandbox/` | Running untrusted bots safely. |
+| `sandbox/` | The ranked jail (CPython in bubblewrap, ADR-002), its image, and the adversarial bots that attack it. |
 | `server/` | API, match queue, workers, matchmaker, ratings. |
 | `web/` | The static frontend (SvelteKit). |
 | `scripts/` | One-off tools, such as the balance report. |

@@ -1,12 +1,15 @@
 [project]
 name = "arena-sandbox"
 version = "0.1.0"
-description = "Runs untrusted bots: the in-jail harness, the host-side runner and the adversarial suite."
+description = "Runs untrusted bots: the ranked jail and the adversarial suite."
 authors = [
     { name = "Ivan Tomilo", email = "153078768+tomeelow@users.noreply.github.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = ["arena-starter-kit"]
+
+[tool.uv.sources]
+arena-starter-kit = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.11.20,<0.12.0"]

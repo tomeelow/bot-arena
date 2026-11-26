@@ -41,6 +41,7 @@ SEATS = (0, 1)
 class Failure(StrEnum):
     TIMEOUT = "timeout"
     CRASH = "crash"
+    MEMORY = "memory"
     INVALID_OUTPUT = "invalid_output"
 
 
@@ -92,11 +93,13 @@ class InProcessChannel:
 
 
 class ProcessChannel:
-    """A bot in its own Python process, talking JSON lines over stdin and stdout."""
+    """A bot in its own process, talking JSON lines over stdin and stdout. `argv` starts the
+    harness: directly for local play, or wrapped in a jail for ranked play."""
 
-    def __init__(self, spec: str, max_line: int) -> None:
+    def __init__(self, argv: list[str], max_line: int, env: dict[str, str] | None = None) -> None:
         self.proc = subprocess.Popen(
-            [sys.executable, "-m", "arena.harness", spec],
+            argv,
+            env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -161,10 +164,13 @@ class ProcessChannel:
                 size -= len(self.stderr.popleft())
 
 
+type Opener = Callable[[str, Limits], Channel]
+
+
 def open_channel(spec: str, limits: Limits) -> Channel:
     if spec.startswith("builtin:"):
         return InProcessChannel(load_bot(spec))
-    return ProcessChannel(spec, limits.reply_max_bytes)
+    return ProcessChannel([sys.executable, "-m", "arena.harness", spec], limits.reply_max_bytes)
 
 
 @dataclass
@@ -182,30 +188,45 @@ class MatchRecord:
 
 
 def run_match(
-    players: tuple[str, str], seed: int, rules: Rules | None = None, limits: Limits | None = None
+    players: tuple[str, str],
+    seed: int,
+    rules: Rules | None = None,
+    limits: Limits | None = None,
+    *,
+    opener: Opener = open_channel,
+    enforce: bool = False,
 ) -> MatchRecord:
-    """Play one match. `players` are bot specs: a .py path or `builtin:NAME`."""
+    """Play one match. `players` are bot specs: a .py path or `builtin:NAME`.
+
+    By default limits only warn. With `enforce`, as in ranked play, a bot that overruns its
+    setup budget or empties its time bank loses on time, and the wall-clock backstop is the
+    ranked one."""
     rules = rules or Rules()
     limits = limits or Limits.load()
+    turn_wait = (limits.turn_backstop_ms if enforce else limits.local_backstop_ms) / 1000
+    init_wait = turn_wait + limits.init_ms / 1000 if enforce else turn_wait
     record = MatchRecord(seed, rules, players, logs=([], []))
     state = new_game(rules, seed)
     channels: list[Channel] = []
     budget = _Budget(limits)
     try:
-        channels = [open_channel(p, limits) for p in players]
+        channels = [opener(p, limits) for p in players]
         inits = [init_message(state, seat, limits, rng_seed=2 * seed + seat) for seat in SEATS]
-        lines, failures, _ = _exchange(channels, inits, limits)
+        lines, failures, ms = _exchange(channels, inits, init_wait)
         for seat in SEATS:
-            if seat not in failures:
-                try:
-                    _note_log(record, seat, 0, parse_ready(lines[seat], limits), limits)
-                except ProtocolError as e:
-                    failures[seat] = (Failure.INVALID_OUTPUT, str(e))
+            if seat in failures:
+                continue
+            try:
+                _note_log(record, seat, 0, parse_ready(lines[seat], limits), limits)
+            except ProtocolError as e:
+                failures[seat] = (Failure.INVALID_OUTPUT, str(e))
+            if enforce and seat not in failures and ms[seat] > limits.init_ms:
+                failures[seat] = (Failure.TIMEOUT, f"setup took {ms[seat]} ms of {limits.init_ms}")
 
         events: tuple[tuple[Event, ...], tuple[Event, ...]] = ((), ())
         while state.outcome is None and not failures:
             messages = [turn_message(state, seat, events[seat]) for seat in SEATS]
-            lines, failures, ms = _exchange(channels, messages, limits)
+            lines, failures, ms = _exchange(channels, messages, turn_wait)
             orders: list[list[Order]] = [[], []]
             for seat in SEATS:
                 if seat in failures:
@@ -219,6 +240,12 @@ def run_match(
             if failures:
                 break
             budget.charge(state.turn, ms)
+            if enforce:
+                for seat in SEATS:
+                    if budget.bank[seat] < 0:
+                        failures[seat] = (Failure.TIMEOUT, f"time bank empty at turn {state.turn}")
+                if failures:
+                    break
             record.orders.append((orders[0], orders[1]))
             record.think_ms.append((ms[0], ms[1]))
             result = step(state, {0: orders[0], 1: orders[1]})
@@ -233,7 +260,7 @@ def run_match(
 
 
 def _exchange(
-    channels: list[Channel], messages: list[dict[str, Any]], limits: Limits
+    channels: list[Channel], messages: list[dict[str, Any]], wait_s: float
 ) -> tuple[list[bytes], dict[int, tuple[Failure, str]], list[int]]:
     """Send both seats their message first, so both think at once, then collect replies:
     (reply lines, failures by seat, thinking time in ms)."""
@@ -243,7 +270,7 @@ def _exchange(
     failures: dict[int, tuple[Failure, str]] = {}
     ms: list[int] = []
     for seat, channel in enumerate(channels):
-        reply = channel.receive(limits.local_backstop_ms / 1000)
+        reply = channel.receive(wait_s)
         ms.append(round(reply.ms))
         lines.append(reply.line or b"")
         if reply.line is None:
@@ -268,8 +295,8 @@ def _result(state: GameState, failures: dict[int, tuple[Failure, str]]) -> Resul
 
 
 class _Budget:
-    """Ranked time rules, applied in advisory mode: count overruns and spot when a bot
-    would have run out of time bank."""
+    """Ranked time rules: count overruns and track each bot's time bank. Locally they only
+    produce warnings; `run_match(enforce=True)` makes an empty bank a loss."""
 
     def __init__(self, limits: Limits) -> None:
         self.limits = limits
