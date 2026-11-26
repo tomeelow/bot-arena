@@ -49,3 +49,11 @@ egress_month_bytes = 800000000    # free tier is 1 GB/month out; past this the s
 disk_pause_fraction = 0.85        # the guard pauses the ladder when the disk is this full
 logs_keep_days = 14               # bot logs (owner-only debug output)
 live_keep_days = 7                # live frame files; after this, frames come from the replay
+
+[metrics]
+# Phase 10: the public /stats page and the admin health page (arena_server/metrics.py).
+stats_days = 30                   # daily series on /stats cover this many days
+stats_cache_s = 300               # /api/stats is recomputed at most this often
+health_window_h = 24              # health figures cover the last this many hours
+alert_disk_fraction = 0.8         # alert above this (the guard pauses the ladder at 0.85)
+alert_queue_wait_s = 3600         # alert when a match has waited longer than this to start

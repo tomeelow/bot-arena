@@ -398,3 +398,36 @@ The next step is the cheapest paid VM, recorded as a new ADR with its cost. The 
 
 - Google: [Free cloud features](https://docs.cloud.google.com/free/docs/free-cloud-features), [vCPUs on shared-core machines](https://docs.cloud.google.com/docs/compute-area/vcpus), [E2 machine types (blog)](https://cloud.google.com/blog/products/compute/google-compute-engine-gets-new-e2-vm-machine-types), [external IP pricing](https://cloud.google.com/vpc/pricing-announce-external-ips)
 - Cloudflare: [Pages Functions pricing](https://developers.cloudflare.com/pages/functions/pricing/), [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [Pages limits](https://developers.cloudflare.com/pages/platform/limits)
+
+---
+
+## ADR-011 — Alerts as a dead man's switch at Healthchecks.io
+
+**Status:** accepted · **Date:** 2026-11-26 · **Terms last checked:** 2026-11-26 · **Settles:** ADR-005's open question on uptime monitoring
+
+### Context
+
+Phase 10 needs free email alerts when a platform error occurs, the disk passes 80% or the queue backs up. It also has to alert when the VM itself is down, which a VM can't do for itself. Sending email from the VM needs an SMTP account. An uptime checker that polls a public URL would also need the VM to publish its alerts.
+
+### Decision
+
+**Healthchecks.io's free Hobbyist plan** ($0; 20 checks; read 2026-11-26), used as a dead man's switch:
+- `ops guard` already runs every 5 minutes. It now also computes the health alerts (`metrics.alerts`).
+- With no alerts, it pings the check's URL. With alerts, it pings `<url>/fail` with the reasons in the body.
+- Configure the check with a 5-minute period and a 10-minute grace time. Then a VM that is down, a dead timer, or a broken guard all alert by missing their pings.
+
+The ping URL sits in `/etc/arena/alerts.env`. Without it, the guard sends nothing.
+
+### Alternatives considered
+
+- **UptimeRobot polling a `/health/alerts` endpoint.** That publishes the alert reasons to anyone, and sources still conflict on whether the free plan allows non-personal use (ADR-005).
+- **Email from the VM.** It needs an SMTP provider and its credentials, and it can't report its own outage.
+- **Google Cloud Monitoring alerts.** The VM would need an ops agent to report disk usage, which costs memory a 1 GB machine can't spare. It also ties alerting to the project it watches.
+
+### What would change our mind
+
+Healthchecks.io limiting free checks or email alerts. Its code is open source (BSD), so self-hosting it somewhere free is the fallback.
+
+### Sources (read 2026-11-26)
+
+- [Healthchecks.io pricing](https://healthchecks.io/pricing)

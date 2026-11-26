@@ -38,6 +38,11 @@ class Settings:
     disk_pause_fraction: float
     logs_keep_days: int
     live_keep_days: int
+    stats_days: int
+    stats_cache_s: float
+    health_window_h: int
+    alert_disk_fraction: float
+    alert_queue_wait_s: float
 
     @classmethod
     def load(cls) -> Settings:

@@ -5,6 +5,8 @@ Description=Bot Arena budget guard: egress, disk, expiry
 Type=oneshot
 User=arena
 Group=arena
+# Optional: ARENA_HEALTHCHECK_URL, the uptime checker's ping URL (RUNBOOK, Alerts).
+EnvironmentFile=-/etc/arena/alerts.env
 Environment=ARENA_DATA_DIR=/var/lib/arena
 ExecStart=/opt/arena/venv/bin/python -m arena_server.ops guard
 UMask=0077

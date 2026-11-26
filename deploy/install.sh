@@ -13,7 +13,7 @@ id deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/sh deploy
 # 0711: Caddy may check for the EGRESS_CAPPED flag by name; nobody else may list bot code.
 install -d -m 0711 -o arena -g arena /var/lib/arena
 install -d -m 0750 -g arena /etc/arena
-for f in api caddy backup; do
+for f in api caddy backup alerts; do
     [ -e /etc/arena/$f.env ] || install -m 0640 -g arena /dev/null /etc/arena/$f.env
 done
 chgrp caddy /etc/arena/caddy.env

@@ -24,7 +24,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ✅ | 6 | Ladder, bot pages, viewer with scrubber and logs |
 | 8 | [Browser practice](#phase-8--browser-practice) | 🟨 | 2, 7 | Pyodide practice mode, cross-runtime determinism |
 | 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | 🟨 | 7 | Live site on free tiers, backups, budget guards, private alpha |
-| 10 | [Observability & usage metrics](#phase-10--observability--usage-metrics) | ⬜ | 9 | Public stats page, platform health, alerts |
+| 10 | [Observability & usage metrics](#phase-10--observability--usage-metrics) | 🟨 | 9 | Public stats page, platform health, alerts |
 | 11 | [The RL boss](#phase-11--the-rl-boss) | ⬜ | 2 (train), 9 (ship) | Self-play boss on the ladder with a model card |
 | 12 | [Launch & polish](#phase-12--launch--polish) | ⬜ | 10, 11 | README, docs, season 1, blog post, demo |
 
@@ -643,22 +643,34 @@ matches_per_day        = 1_000  → ≈ 2 GB of replays a year        (binding; 
 ### Platform health (admin page, structured JSON logs, no paid APM)
 Match duration · distribution of end reasons · **`platform_error` rate (target: 0)** · queue depth and wait time · worker utilization · jail start latency · disk usage.
 
+*Built (`server/src/arena_server/metrics.py`, `/admin`, `GET /api/admin/health`):*
+- Every figure above except **jail start latency**. Nothing records it yet, and adding it means instrumenting the jail, which needs asking first (CLAUDE.md).
+- `matches.started_at` (migration 004) gives queue wait and duration. Match start and end times keep milliseconds.
+- Admins are the GitHub ids in `ARENA_ADMIN_GITHUB_IDS`.
+
 ### Usage metrics (public `/stats` page; one SQL query per metric over our own DB)
 | Metric | Definition |
 |---|---|
 | Submitted bots | Distinct bots with at least one validated version |
 | Versions per day | Validated uploads per day |
-| Active players (7d) | Users with an upload or a signed-in visit in the last 7 days |
+| Active players (7d) | Users with an upload or a comparison request in the last 7 days. *Signed-in visits aren't counted: that would mean storing when each user was last seen, which is new user data and needs asking first.* |
 | Matches per day | Rated matches completed per day |
 | Rating convergence | Median rated games (and hours) until a new version's σ < threshold |
 | Time to first match | From upload to first completed rated match, p50/p95 |
 | Sandbox outcomes | Share of matches ending in timeout, crash, memory or invalid output |
 
+*Built:* `/stats` and `GET /api/stats`, cached for `stats_cache_s`. The thresholds and windows are in `settings.toml` `[metrics]`.
+
+**Alerts (ADR-011):**
+- `ops guard` runs every 5 minutes. It pings a Healthchecks.io check when there are no alerts, and reports a failure with the reasons when there are.
+- The alerts are: a platform error, disk at or above 80%, a match waiting more than an hour, the ladder paused, and the egress cap reached.
+- A VM that stops pinging alerts too.
+
 **Exit criteria**
-- [ ] Every metric defined as a tested query (against a fixture DB)
-- [ ] Public stats page and admin health page
-- [ ] Free alerts (uptime checker email or similar) for `platform_error > 0`, disk above 80%, and queue wait above its threshold
-- [ ] No third-party trackers (checked in the browser network tab)
+- [x] Every metric defined as a tested query against a fixture DB (`server/tests/test_metrics.py`), except jail start latency (see above)
+- [x] Public stats page and admin health page (`/stats`, `/admin`; both checked against the dev server)
+- [ ] Free alerts (uptime checker email or similar) for `platform_error > 0`, disk above 80%, and queue wait above its threshold. They're built and tested (`report_alerts`); the Healthchecks.io account and its check are the owner's to create (RUNBOOK "Alerts").
+- [x] No third-party trackers. Rather than a one-off look at the network tab, `web/tests/e2e/privacy.spec.ts` loads every page and plays a practice match, and fails on any request to another origin.
 
 ---
 

@@ -25,7 +25,7 @@ from urllib.parse import quote
 
 import httpx
 
-from . import bots
+from . import bots, metrics
 from .db import connect, migrate
 from .ratings import Ratings, rebuild, stored
 from .settings import Settings
@@ -115,6 +115,18 @@ def guard(store: Store, settings: Settings, tx: int, now: datetime) -> Meter:
         if gone := expire(data / folder, days, now.timestamp()):
             log.info("expired %d files from %s", gone, folder)
     return meter
+
+
+def report_alerts(store: Store, settings: Settings, url: str, client: httpx.Client) -> list[str]:
+    """A dead man's switch at the uptime checker (deploy/RUNBOOK.md): a ping when all is
+    well, a failure with the reasons when not. A VM that stops pinging alerts as well."""
+    with closing(connect(store.root / "arena.db")) as conn:
+        found = metrics.health(conn, store, settings).alerts
+    if found:
+        client.post(f"{url}/fail", content="\n".join(found)).raise_for_status()
+    else:
+        client.post(url).raise_for_status()
+    return found
 
 
 def expire(folder: Path, days: int, now: float) -> int:
@@ -301,6 +313,10 @@ def main(argv: list[str] | None = None) -> int:
             log.info("disk: %.0f%% used", 100 * disk.used / disk.total)
         case "guard":
             guard(Store(data), settings, interface_tx_bytes(), datetime.now(UTC))
+            if url := os.environ.get("ARENA_HEALTHCHECK_URL"):
+                with httpx.Client(timeout=30) as client:
+                    for alert in report_alerts(Store(data), settings, url, client):
+                        log.warning("alert: %s", alert)
         case "backup":
             sent = backup(data, GCS(os.environ["ARENA_BACKUP_BUCKET"]), datetime.now(UTC))
             log.info("backup uploaded %d bytes", sent)

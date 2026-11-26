@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 import sqlite3
+import time
 from collections import Counter
 from collections.abc import Iterator
 from contextlib import closing
@@ -33,7 +34,7 @@ from fastapi import Path as PathParam
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 
-from . import bots, compare, ladder
+from . import bots, compare, ladder, metrics
 from .auth import GitHub, GitHubOAuth, Sessions
 from .db import connect, migrate
 from .queue import immediate
@@ -45,6 +46,7 @@ from .schemas import (
     ComparisonView,
     Created,
     Health,
+    HealthReport,
     InvalidOrderView,
     LadderRow,
     MatchSummary,
@@ -55,6 +57,7 @@ from .schemas import (
     Player,
     RatingPoint,
     Upload,
+    UsageStats,
     VersionView,
 )
 from .settings import Settings
@@ -86,7 +89,11 @@ Seat = Annotated[int, PathParam(ge=0, le=1)]
 
 
 def create_app(
-    data: Path, github: GitHub, session_secret: bytes, settings: Settings | None = None
+    data: Path,
+    github: GitHub,
+    session_secret: bytes,
+    settings: Settings | None = None,
+    admins: frozenset[int] = frozenset(),  # GitHub ids allowed to see the health page
 ) -> FastAPI:
     settings = settings or Settings.load()
     ratings = Ratings(settings)
@@ -102,10 +109,25 @@ def create_app(
     app.state.sessions = sessions
     viewers: Counter[int] = Counter()
     rng = Random()
+    stats_cache: list[tuple[float, UsageStats]] = []
 
     @app.get("/health")
     def health() -> Health:
         return Health(status="ok", engine_version=ENGINE_VERSION)
+
+    @app.get("/api/stats")
+    def get_stats(conn: DB) -> UsageStats:
+        """Usage, in aggregate, from our own database (docs/implementation_plan.md, Phase 10)."""
+        if not stats_cache or time.monotonic() - stats_cache[0][0] > settings.stats_cache_s:
+            stats_cache[:] = [(time.monotonic(), metrics.usage(conn, ratings, settings))]
+        return stats_cache[0][1]
+
+    @app.get("/api/admin/health")
+    def get_health(conn: DB, me: Me) -> HealthReport:
+        row = conn.execute("SELECT github_id FROM users WHERE id = ?", (me,)).fetchone()
+        if row is None or row[0] not in admins:
+            raise HTTPException(403, "admins only")
+        return metrics.health(conn, store, settings)
 
     @app.get("/api/me")
     def get_me(conn: DB, me: Me) -> Account:
@@ -490,4 +512,7 @@ def app_from_env() -> FastAPI:
         Path(os.environ["ARENA_DATA_DIR"]),
         GitHubOAuth(os.environ["GITHUB_CLIENT_ID"], os.environ["GITHUB_CLIENT_SECRET"]),
         os.environ["SESSION_SECRET"].encode(),
+        admins=frozenset(
+            int(i) for i in os.environ.get("ARENA_ADMIN_GITHUB_IDS", "").split(",") if i.strip()
+        ),
     )
