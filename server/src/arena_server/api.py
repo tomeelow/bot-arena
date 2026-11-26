@@ -23,6 +23,7 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Query,
     Request,
     Response,
     WebSocket,
@@ -35,19 +36,23 @@ from . import bots, compare, frames, ladder
 from .auth import GitHub, GitHubOAuth, Sessions
 from .db import connect, migrate
 from .queue import immediate
-from .ratings import Ratings, stored
+from .ratings import Ratings, history, stored
 from .schemas import (
+    Account,
     BotView,
     CompareRequest,
     ComparisonView,
     Created,
     Health,
+    InvalidOrderView,
     LadderRow,
     MatchSummary,
     MatchView,
+    MyBot,
     NewBot,
     Outcome,
     Player,
+    RatingPoint,
     Upload,
     VersionView,
 )
@@ -76,6 +81,7 @@ def logged_in(user: Annotated[int | None, Depends(current_user)]) -> int:
 DB = Annotated[sqlite3.Connection, Depends(db)]
 Me = Annotated[int, Depends(logged_in)]
 MaybeMe = Annotated[int | None, Depends(current_user)]
+Seat = Annotated[int, PathParam(ge=0, le=1)]
 
 
 def create_app(
@@ -100,10 +106,30 @@ def create_app(
     def health() -> Health:
         return Health(status="ok", engine_version=ENGINE_VERSION)
 
+    @app.get("/api/me")
+    def get_me(conn: DB, me: Me) -> Account:
+        handle = conn.execute("SELECT handle FROM users WHERE id = ?", (me,)).fetchone()[0]
+        rows = conn.execute("SELECT id, name FROM bots WHERE owner_id = ? ORDER BY id", (me,))
+        return Account(handle=handle, bots=[MyBot(id=r["id"], name=r["name"]) for r in rows])
+
+    @app.get("/api/matches")
+    def list_matches(
+        conn: DB,
+        status: Annotated[str, Query(pattern="^(running|done)$")] = "done",
+        limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    ) -> list[MatchSummary]:
+        """Matches being played now, or the latest finished ones."""
+        rows = conn.execute(
+            "SELECT id FROM matches WHERE status = ? ORDER BY id DESC LIMIT ?", (status, limit)
+        ).fetchall()
+        return _summaries(conn, [r[0] for r in rows])
+
     @app.get("/api/ladder")
     def get_ladder(conn: DB) -> list[LadderRow]:
+        board = ladder.leaderboard(conn, ratings)
         rows = []
-        for s in ladder.leaderboard(conn, ratings):
+        for i, s in enumerate(board):
+            below = board[i + 1] if i + 1 < len(board) else None
             e, r = s.entry, s.entry.rating
             rows.append(
                 LadderRow(
@@ -111,6 +137,7 @@ def create_app(
                     owner=e.handle, mu=r.mu, sigma=r.sigma, score=s.score,
                     low=r.mu - 2 * r.sigma, high=r.mu + 2 * r.sigma, games=r.games,
                     provisional=s.provisional,
+                    p_above_next=ratings.p_stronger(r, below.entry.rating) if below else None,
                 )
             )  # fmt: skip
         return rows
@@ -146,6 +173,18 @@ def create_app(
             versions=versions,
             recent_matches=_recent(conn, [v["id"] for v in rows]),
         )
+
+    @app.get("/api/bots/{bot_id}/history")
+    def get_history(bot_id: int, conn: DB) -> list[RatingPoint]:
+        """Each version's rating after every rated game it played, in order."""
+        if _bot_owner(conn, bot_id) is None:
+            raise HTTPException(404, "no such bot")
+        rows = conn.execute("SELECT id FROM bot_versions WHERE bot_id = ?", (bot_id,))
+        versions = {r[0] for r in rows}
+        return [
+            RatingPoint(match_id=m, version_id=v, mu=r.mu, sigma=r.sigma)
+            for m, v, r in history(conn, ratings, versions)
+        ]
 
     @app.post("/api/bots", status_code=201)
     def new_bot(body: NewBot, conn: DB, me: Me) -> Created:
@@ -233,18 +272,19 @@ def create_app(
         return lines
 
     @app.get("/api/matches/{match_id}/logs/{seat}")
-    def get_logs(
-        match_id: int, seat: Annotated[int, PathParam(ge=0, le=1)], conn: DB, me: Me
-    ) -> list[tuple[int, str]]:
-        players = _players(conn, match_id)
-        if not players:
-            raise HTTPException(404, "no such match")
-        if _bot_owner(conn, players[seat]["bot_id"]) != me:
-            raise HTTPException(403, "a bot's logs are visible only to its owner")
+    def get_logs(match_id: int, seat: Seat, conn: DB, me: Me) -> list[tuple[int, str]]:
+        _own_seat(conn, match_id, seat, me)
         path = store.logs(match_id)
         if not path.exists():
             raise HTTPException(404, "no logs for this match")
         return [(turn, text) for turn, text in json.loads(path.read_text())[str(seat)]]
+
+    @app.get("/api/matches/{match_id}/invalid/{seat}")
+    def get_invalid_orders(match_id: int, seat: Seat, conn: DB, me: Me) -> list[InvalidOrderView]:
+        """The orders the engine refused from this seat: owner only, like the logs."""
+        _own_seat(conn, match_id, seat, me)
+        replay = load(store.path(REPLAYS, _replay_sha(conn, match_id), REPLAY))
+        return [InvalidOrderView(turn=t, reason=r) for t, r in frames.invalid_orders(replay, seat)]
 
     @app.websocket("/ws/matches/{match_id}")
     async def watch(websocket: WebSocket, match_id: int) -> None:
@@ -344,12 +384,7 @@ def create_app(
         return [json.loads(line) for line in lines]
 
     def _frames_from_replay(conn: sqlite3.Connection, match_id: int) -> list[dict[str, Any]]:
-        row = conn.execute(
-            "SELECT replay_sha256 FROM results WHERE match_id = ?", (match_id,)
-        ).fetchone()
-        if row is None:
-            raise HTTPException(409, "the match isn't finished; watch it on the websocket")
-        replay = load(store.path(REPLAYS, row[0], REPLAY))
+        replay = load(store.path(REPLAYS, _replay_sha(conn, match_id), REPLAY))
         result = Result(**replay.data["result"])
         return [
             frames.header(replay.states[0], _players(conn, match_id)),
@@ -365,20 +400,29 @@ def _recent(conn: sqlite3.Connection, version_ids: list[int]) -> list[MatchSumma
         return []
     marks = ",".join("?" * len(version_ids))
     rows = conn.execute(
-        f"""SELECT m.id, m.kind, m.status, r.winner_seat, r.end_reason FROM matches m
-            LEFT JOIN results r ON r.match_id = m.id
-            WHERE m.id IN (SELECT match_id FROM match_players WHERE bot_version_id IN ({marks}))
-            ORDER BY m.id DESC LIMIT 20""",
+        f"""SELECT DISTINCT match_id FROM match_players WHERE bot_version_id IN ({marks})
+            ORDER BY match_id DESC LIMIT 20""",
         version_ids,
     ).fetchall()
-    return [
-        MatchSummary(
-            id=m["id"], kind=m["kind"], status=m["status"],
-            players=[f"{p['owner']}/{p['bot']}" for p in _players(conn, m["id"])],
-            winner_seat=m["winner_seat"], reason=m["end_reason"],
-        )
-        for m in rows
-    ]  # fmt: skip
+    return _summaries(conn, [r[0] for r in rows])
+
+
+def _summaries(conn: sqlite3.Connection, match_ids: list[int]) -> list[MatchSummary]:
+    summaries = []
+    for match_id in match_ids:
+        m = conn.execute(
+            """SELECT m.id, m.kind, m.status, r.winner_seat, r.end_reason FROM matches m
+               LEFT JOIN results r ON r.match_id = m.id WHERE m.id = ?""",
+            (match_id,),
+        ).fetchone()
+        summaries.append(
+            MatchSummary(
+                id=m["id"], kind=m["kind"], status=m["status"],
+                players=[f"{p['owner']}/{p['bot']}" for p in _players(conn, m["id"])],
+                winner_seat=m["winner_seat"], reason=m["end_reason"],
+            )
+        )  # fmt: skip
+    return summaries
 
 
 def _players(conn: sqlite3.Connection, match_id: int) -> list[dict[str, Any]]:
@@ -391,6 +435,22 @@ def _players(conn: sqlite3.Connection, match_id: int) -> list[dict[str, Any]]:
 def _bot_owner(conn: sqlite3.Connection, bot_id: int) -> int | None:
     row = conn.execute("SELECT owner_id FROM bots WHERE id = ?", (bot_id,)).fetchone()
     return row[0] if row else None
+
+
+def _own_seat(conn: sqlite3.Connection, match_id: int, seat: int, me: int) -> None:
+    players = _players(conn, match_id)
+    if not players:
+        raise HTTPException(404, "no such match")
+    if _bot_owner(conn, players[seat]["bot_id"]) != me:
+        raise HTTPException(403, "only the bot's owner sees this")
+
+
+def _replay_sha(conn: sqlite3.Connection, match_id: int) -> str:
+    row = conn.execute("SELECT replay_sha256 FROM results WHERE match_id = ?", (match_id,))
+    sha = row.fetchone()
+    if sha is None:
+        raise HTTPException(409, "the match isn't finished; watch it on the websocket")
+    return sha[0]
 
 
 def _own_bot(conn: sqlite3.Connection, bot_id: int, me: int) -> None:

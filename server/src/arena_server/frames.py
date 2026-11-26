@@ -8,8 +8,9 @@ gzip takes out the repetition, so deltas would only add code.
 import base64
 from typing import Any
 
+from arena.replay import Replay
 from arena.runner import Result
-from arena_engine import GameState, visible_cells
+from arena_engine import UNIT_STATS, GameState, InvalidOrder, parse_order, step, visible_cells
 
 KIND = {"worker": "w", "soldier": "s", "scout": "x"}
 
@@ -23,6 +24,8 @@ def header(state: GameState, players: list[dict[str, Any]]) -> dict[str, Any]:
         "max_turns": rules.max_turns,
         "walls": sorted([p.x, p.y] for p in state.walls),
         "cores": [[c.pos.x, c.pos.y] for c in state.cores],
+        "core_hp": rules.core_hp,
+        "unit_stats": {KIND[k.value]: {"cost": s.cost, "hp": s.hp} for k, s in UNIT_STATS.items()},
         "players": players,
     }
 
@@ -42,6 +45,18 @@ def frame(state: GameState) -> dict[str, Any]:
 
 def end(result: Result) -> dict[str, Any]:
     return {"type": "end", "winner": result.winner, "reason": result.reason, "turns": result.turns}
+
+
+def invalid_orders(replay: Replay, seat: int) -> list[tuple[int, str]]:
+    """(turn, reason) for each of `seat`'s orders the engine refused. Re-simulates, because
+    replays keep orders, not events. Owner only: it shows what a bot tried to do."""
+    refused = []
+    for state, played in zip(replay.states[:-1], replay.data["turns"], strict=True):
+        orders = {s: [parse_order(o) for o in played["orders"][s]] for s in (0, 1)}
+        for event in step(state, orders).events[seat]:
+            if isinstance(event, InvalidOrder):
+                refused.append((state.turn, event.reason))
+    return refused
 
 
 def _mask(state: GameState, seat: int) -> str:

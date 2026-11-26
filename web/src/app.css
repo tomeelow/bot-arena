@@ -1,0 +1,127 @@
+:root {
+	color-scheme: light dark;
+	--bg: light-dark(#fbfaf7, #14161a);
+	--surface: light-dark(#f0eee8, #1d2026);
+	--ink: light-dark(#1b1d21, #e8e6e1);
+	--muted: light-dark(#5d6168, #a3a7ad);
+	--line: light-dark(#d6d3cb, #353a42);
+	--accent: light-dark(#2457c5, #8fb2ff);
+	--danger: light-dark(#b3261e, #ff8a80);
+	--highlight: light-dark(#f5d76e55, #f5d76e33);
+	--seat-0: light-dark(#2f6fde, #6fa0ff);
+	--seat-1: light-dark(#d9480f, #ff8b4d);
+	--board-floor: light-dark(#e9e6de, #23272e);
+	--board-wall: light-dark(#6b6f76, #4a505a);
+	--board-fog: light-dark(#14161acc, #000000bb);
+	--board-crystal: light-dark(#0f9d8a, #3fd6bf);
+	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+	accent-color: var(--accent);
+	background: var(--bg);
+	color: var(--ink);
+	font-family: system-ui, sans-serif;
+	line-height: 1.5;
+}
+
+body {
+	margin: 0;
+}
+
+a {
+	color: var(--accent);
+}
+
+h1,
+h2 {
+	line-height: 1.2;
+	text-wrap: balance;
+}
+
+table {
+	border-collapse: collapse;
+	inline-size: 100%;
+	font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+	text-align: start;
+	padding: 0.35rem 0.5rem;
+	border-block-end: 1px solid var(--line);
+}
+
+th {
+	font-weight: 600;
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+td.num,
+th.num {
+	text-align: end;
+}
+
+button,
+select,
+input {
+	font: inherit;
+}
+
+button {
+	padding: 0.3rem 0.8rem;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	background: var(--surface);
+	color: var(--ink);
+	cursor: pointer;
+}
+
+button.link {
+	border: none;
+	background: none;
+	padding: 0;
+	color: var(--accent);
+	text-decoration: underline;
+}
+
+pre,
+code,
+kbd {
+	font-family: var(--mono);
+	font-size: 0.875em;
+}
+
+pre {
+	background: var(--surface);
+	padding: 0.75rem;
+	border-radius: 4px;
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+kbd {
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	padding: 0 0.25rem;
+}
+
+.muted {
+	color: var(--muted);
+}
+
+.error {
+	color: var(--danger);
+}
+
+.badge {
+	font-size: 0.75rem;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	padding: 0 0.5rem;
+	color: var(--muted);
+}
+
+/* the element app.html wraps the app in: an inline style there would break the CSP */
+.app {
+	display: contents;
+}

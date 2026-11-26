@@ -21,7 +21,7 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done
 | 4 | [Match infrastructure](#phase-4--match-infrastructure) | ✅ | 3 | Upload pipeline, queue, workers, replay store |
 | 5 | [Ratings & matchmaking](#phase-5--ratings--matchmaking) | 🟨 | 4 | Rating service, matchmaker, synthetic-ladder validation |
 | 6 | [API, auth & live spectating](#phase-6--api-auth--live-spectating) | 🟨 | 5 | FastAPI, GitHub login, websocket streaming |
-| 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ⬜ | 6 | Ladder, bot pages, viewer with scrubber and logs |
+| 7 | [Web frontend & viewer](#phase-7--web-frontend--viewer) | ✅ | 6 | Ladder, bot pages, viewer with scrubber and logs |
 | 8 | [Browser practice](#phase-8--browser-practice) | ⬜ | 2, 7 | Pyodide practice mode, cross-runtime determinism |
 | 9 | [Zero-cost deployment](#phase-9--zero-cost-deployment) | ⬜ | 7 | Live site on free tiers, backups, budget guards, private alpha |
 | 10 | [Observability & usage metrics](#phase-10--observability--usage-metrics) | ⬜ | 9 | Public stats page, platform health, alerts |
@@ -456,6 +456,8 @@ def rebuild_ratings(results: Iterable[Result]) -> dict[VersionId, Rating]:
 ```
 Incremental live updates and a full rebuild must agree exactly (test). This lets us change the rating system later, rebuild, and compare.
 
+> **Open bug (found in Phase 7 review, 2026-11-26):** `rated_results` replays in `results.rowid` order, and `rowid` is the match id. The live table applies results in the order matches *finish*, and the queue claims by priority first, so a placement match can finish before an older ranked one. Then a rebuild (and the bot-page rating history) can differ from the stored ratings. The existing test passes because its matches happen to finish in id order. The fix needs a recorded application order in `results`, which is a schema change: ask before making it.
+
 **New versions:** start from the parent version's μ with σ reset to the prior σ. That converges faster than starting from scratch and stays honest because σ is wide. *(Decision to confirm in ADR-003.)*
 
 ### Saying how sure we are
@@ -561,10 +563,15 @@ Home (what this is, top of the ladder, matches live right now) · Rules & starte
 Names, descriptions and logs render as text. Strict CSP with no inline scripts.
 
 **Exit criteria**
-- [ ] All pages above, as a static build
-- [ ] Viewer: scrubber, vision toggle, advantage graph, event markers, owner logs
-- [ ] Live and replay share one viewer component
-- [ ] XSS test: a bot named `<img src=x onerror=alert(1)>`, with logs to match, renders as plain text
+- [x] All pages above, as a static build (Practice and Stats arrive with Phases 8 and 10). Pages that take an id are one static page each reading `?id=`, so any static host serves them
+- [x] Viewer: scrubber, vision toggle, advantage graph, event markers, owner logs (checked in a browser against `make dev-api`)
+- [x] Live and replay share one viewer component (`web/src/lib/viewer/`, fed by `MatchFeed`)
+- [x] XSS test: a bot named `<img src=x onerror=alert(1)>`, with logs to match, renders as plain text (`web/src/lib/xss.test.ts`; lint bans `{@html}` and `innerHTML`)
+
+### Notes for Phase 9
+- **The site assumes one origin for pages and API.** The session cookie is `SameSite=Lax`, and the frontend calls `/api` relatively. The static build and the API have to be served from the same origin (for example Caddy serving `web/build` and proxying `/api`, `/auth` and `/ws`), or this needs a new decision before deploying.
+- **The CSP ships as a `<meta>` tag**, which can't carry `frame-ancestors`. Send it, plus `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy`, as real headers from whatever serves the site.
+- **Nothing creates the built-in anchors in production yet.** `bots.builtin_version` is only called by tests and `scripts/dev_server.py`, so a fresh database places new bots against no anchors. Deployment needs a bootstrap step.
 
 ---
 

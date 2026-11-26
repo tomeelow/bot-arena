@@ -246,3 +246,60 @@ def test_the_ladder_shows_intervals_and_ranks(app, data):
     rows = client(app).get("/api/ladder").json()
     assert rows and all(r["low"] < r["mu"] < r["high"] for r in rows)
     assert [r["rank"] for r in rows] == list(range(1, len(rows) + 1))
+    assert all(0 <= r["p_above_next"] <= 1 for r in rows[:-1]) and rows[-1]["p_above_next"] is None
+
+
+def test_me_lists_only_my_bots(app):
+    ada, bob, anon = client(app), client(app), client(app)
+    login(ada, "code-ada")
+    login(bob, "code-bob")
+    mine = new_bot(ada, "mine")
+    new_bot(bob, "theirs")
+    assert anon.get("/api/me").status_code == 401
+    assert ada.get("/api/me").json() == {"handle": "ada", "bots": [{"id": mine, "name": "mine"}]}
+
+
+def test_matches_can_be_listed_by_status(app, data):
+    match = played_match(data)
+    c = client(app)
+    assert [m["id"] for m in c.get("/api/matches").json()] == [match]
+    assert c.get("/api/matches", params={"status": "running"}).json() == []
+    assert c.get("/api/matches", params={"status": "queued; DROP"}).status_code == 422
+
+
+BLUNDER = FINE.replace(b"return []", b"return [{'type': 'move', 'unit': 999, 'dir': 'N'}]")
+
+
+def test_invalid_orders_are_owner_only_and_come_from_the_replay(app, data):
+    match = played_match(data, BLUNDER)
+    ada, bob = client(app), client(app)
+    login(ada, "code-ada")
+    login(bob, "code-bob")
+    assert bob.get(f"/api/matches/{match}/invalid/0").status_code == 403
+    refused = ada.get(f"/api/matches/{match}/invalid/0").json()
+    turns = client(app).get(f"/api/matches/{match}").json()["result"]["turns"]
+    assert [r["turn"] for r in refused] == list(range(turns))
+    assert all(r["reason"] for r in refused)
+
+
+def test_rating_history_ends_at_the_stored_rating(app, data):
+    match = played_match(data)
+    db = connect(data / "arena.db")
+    bot, version = db.execute(
+        "SELECT v.bot_id, v.id FROM match_players p JOIN bot_versions v ON v.id = p.bot_version_id"
+        " WHERE p.match_id = ? AND p.seat = 0",
+        (match,),
+    ).fetchone()
+    points = client(app).get(f"/api/bots/{bot}/history").json()
+    mu, sigma = db.execute(
+        "SELECT mu, sigma FROM ratings WHERE bot_version_id = ?", (version,)
+    ).fetchone()
+    assert points[-1] == {"match_id": match, "version_id": version, "mu": mu, "sigma": sigma}
+    assert client(app).get("/api/bots/9999/history").status_code == 404
+
+
+def test_a_new_bot_and_an_empty_ladder_are_empty_not_errors(app):
+    ada = client(app)
+    assert ada.get("/api/ladder").json() == []
+    login(ada, "code-ada")
+    assert ada.get(f"/api/bots/{new_bot(ada)}/history").json() == []
