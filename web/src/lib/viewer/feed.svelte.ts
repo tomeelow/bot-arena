@@ -41,6 +41,7 @@ export class MatchFeed {
 			}
 		};
 		socket.onclose = (event) => {
+			this.frames = [...this.frames, ...pending.splice(0)];
 			this.live = false;
 			if (!this.end && event.code !== 1000) this.error = event.reason || 'The connection closed.';
 		};

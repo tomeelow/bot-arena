@@ -6,6 +6,7 @@ class Session {
 	account = $state<Account | null>(null);
 	checked = $state(false);
 	#loading: Promise<void> | null = null;
+	#generation = 0; // bumped by logout, so a refresh that started before it can't undo it
 
 	load(): Promise<void> {
 		this.#loading ??= this.refresh();
@@ -13,8 +14,10 @@ class Session {
 	}
 
 	async refresh(): Promise<void> {
+		const generation = this.#generation;
 		try {
-			this.account = await get<Account>('/api/me');
+			const account = await get<Account>('/api/me');
+			if (generation === this.#generation) this.account = account;
 		} catch (e) {
 			if (!(e instanceof ApiError && e.status === 401)) throw e;
 			this.account = null;
@@ -28,7 +31,9 @@ class Session {
 	}
 
 	async logout(): Promise<void> {
-		await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+		const response = await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
+		if (!response.ok) throw new ApiError(response.status, 'Logging out failed; try again.');
+		this.#generation += 1;
 		this.account = null;
 	}
 }

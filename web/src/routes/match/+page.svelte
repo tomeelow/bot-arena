@@ -19,20 +19,27 @@
 	$effect(() => {
 		const id = Number(page.url.searchParams.get('id'));
 		const current = new MatchFeed();
-		feed = current;
+		let disposed = false; // navigating to another match reuses this page: drop late answers
+		[feed, match, error] = [current, null, ''];
 		get<MatchView>(`/api/matches/${id}`)
 			.then((m) => {
+				if (disposed) return;
 				match = m;
 				return current.open(m);
 			})
-			.catch((e: Error) => (error = e.message));
-		return () => current.close();
+			.catch((e: Error) => !disposed && (error = e.message));
+		return () => {
+			disposed = true;
+			current.close();
+		};
 	});
 
 	// Logs and refused orders are the owner's alone, and exist once the match is finished.
 	$effect(() => {
+		owned = [null, null]; // never keep one match's or one user's private data for another
 		if (!match || !feed?.end || !session.checked) return;
 		const id = match.id;
+		let current = true;
 		void Promise.all(
 			match.players.map(async (p) =>
 				session.owns(p.bot_id)
@@ -42,7 +49,10 @@
 						}
 					: null
 			)
-		).then((o) => (owned = o as [Owned | null, Owned | null]));
+		)
+			.then((o) => current && (owned = o as [Owned | null, Owned | null]))
+			.catch((e: Error) => current && (error = `Couldn't load your bot's logs: ${e.message}`));
+		return () => (current = false);
 	});
 </script>
 

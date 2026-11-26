@@ -41,8 +41,11 @@
 	const events = $derived(markers(frames));
 	const seat = $derived(vision === 'all' ? null : (Number(vision) as Seat));
 
+	// Following a live match ends on its last frame, even one that lands after the socket closes.
+	let wasLive = $state(false);
 	$effect(() => {
-		if (live && following) index = last;
+		if (live) wasLive = true;
+		if (following && wasLive) index = last;
 	});
 
 	$effect(() => {
@@ -63,6 +66,11 @@
 	}
 
 	function toggle() {
+		if (live && following) {
+			following = false; // pausing a live match stops on this turn
+			playing = false;
+			return;
+		}
 		if (!playing && index >= last && !live) index = 0;
 		playing = !playing;
 	}
@@ -70,6 +78,7 @@
 	function onkeydown(event: KeyboardEvent) {
 		const target = event.target as HTMLElement;
 		if (target.closest('input:not([type=range]), textarea, select, [contenteditable]')) return;
+		if (target.closest('button, a') && (event.key === ' ' || event.key === 'Enter')) return;
 		const keys: Record<string, () => void> = {
 			' ': toggle,
 			k: toggle,
@@ -146,7 +155,7 @@
 
 	<div class="controls">
 		<button type="button" onclick={toggle} aria-keyshortcuts="Space k">
-			{playing ? 'Pause' : 'Play'}
+			{playing || (live && following) ? 'Pause' : 'Play'}
 		</button>
 		<button
 			type="button"

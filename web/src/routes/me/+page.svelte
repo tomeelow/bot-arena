@@ -17,7 +17,10 @@
 	}
 
 	$effect(() => {
-		void session.load().then(reload);
+		session
+			.load()
+			.then(reload)
+			.catch((e: Error) => (error = `Couldn't load your bots: ${e.message}. Reload to try again.`));
 	});
 
 	async function act(work: () => Promise<string>) {

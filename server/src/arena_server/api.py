@@ -128,7 +128,8 @@ def create_app(
     def get_ladder(conn: DB) -> list[LadderRow]:
         board = ladder.leaderboard(conn, ratings)
         rows = []
-        for s, below in zip(board, [*board[1:], None], strict=True):
+        for i, s in enumerate(board):
+            below = board[i + 1] if i + 1 < len(board) else None
             e, r = s.entry, s.entry.rating
             rows.append(
                 LadderRow(
@@ -176,11 +177,10 @@ def create_app(
     @app.get("/api/bots/{bot_id}/history")
     def get_history(bot_id: int, conn: DB) -> list[RatingPoint]:
         """Each version's rating after every rated game it played, in order."""
-        versions = {
-            r[0] for r in conn.execute("SELECT id FROM bot_versions WHERE bot_id = ?", (bot_id,))
-        }
-        if not versions:
+        if _bot_owner(conn, bot_id) is None:
             raise HTTPException(404, "no such bot")
+        rows = conn.execute("SELECT id FROM bot_versions WHERE bot_id = ?", (bot_id,))
+        versions = {r[0] for r in rows}
         return [
             RatingPoint(match_id=m, version_id=v, mu=r.mu, sigma=r.sigma)
             for m, v, r in history(conn, ratings, versions)

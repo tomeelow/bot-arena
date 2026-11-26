@@ -296,3 +296,10 @@ def test_rating_history_ends_at_the_stored_rating(app, data):
     ).fetchone()
     assert points[-1] == {"match_id": match, "version_id": version, "mu": mu, "sigma": sigma}
     assert client(app).get("/api/bots/9999/history").status_code == 404
+
+
+def test_a_new_bot_and_an_empty_ladder_are_empty_not_errors(app):
+    ada = client(app)
+    assert ada.get("/api/ladder").json() == []
+    login(ada, "code-ada")
+    assert ada.get(f"/api/bots/{new_bot(ada)}/history").json() == []

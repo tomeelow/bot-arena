@@ -16,6 +16,7 @@
 	let seedPairs = $state(10);
 	let comparison = $state<ComparisonView | null>(null);
 	let compareError = $state('');
+	let retries = $state(0);
 
 	const mine = $derived(bot !== null && session.owns(bot.id));
 	// Versions that passed validation: a new version retires the last one, but both can be compared.
@@ -24,26 +25,39 @@
 
 	$effect(() => {
 		const id = Number(page.url.searchParams.get('id'));
+		let current = true; // navigating to another bot reuses this page: drop late answers
+		[bot, points, error, comparison] = [null, [], '', null];
 		Promise.all([get<BotView>(`/api/bots/${id}`), get<RatingPoint[]>(`/api/bots/${id}/history`)])
 			.then(([b, h]) => {
+				if (!current) return;
 				[bot, points] = [b, h];
 				const [newest, previous] = b.versions.filter((v) => COMPARABLE.includes(v.status));
 				challenger = newest?.id ?? 0;
 				incumbent = previous?.id ?? 0;
 			})
-			.catch((e: Error) => (error = e.message));
+			.catch((e: Error) => current && (error = e.message));
+		return () => (current = false);
 	});
 
 	// A comparison's games are played by the workers: check back until they are all in.
 	$effect(() => {
 		if (!comparison || comparison.pending === 0) return;
 		const id = comparison.id;
+		void retries;
+		let current = true;
 		const timer = setTimeout(() => {
 			get<ComparisonView>(`/api/compare/${id}`)
-				.then((c) => (comparison = c))
-				.catch((e: Error) => (compareError = e.message));
+				.then((c) => current && (comparison = c))
+				.catch((e: Error) => {
+					if (!current) return;
+					compareError = `${e.message}; trying again.`;
+					retries += 1;
+				});
 		}, 5000);
-		return () => clearTimeout(timer);
+		return () => {
+			current = false;
+			clearTimeout(timer);
+		};
 	});
 
 	async function compare(event: SubmitEvent) {

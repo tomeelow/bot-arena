@@ -18,7 +18,7 @@ from random import Random
 import uvicorn
 from arena.runner import MatchRecord, run_match
 from arena_engine import GameState, Rules
-from arena_server import bots, ladder
+from arena_server import bots, ladder, queue
 from arena_server.api import create_app
 from arena_server.db import connect, migrate
 from arena_server.ratings import Ratings
@@ -52,6 +52,7 @@ def background(turn_delay: float) -> None:
     worker = Worker(conn, Store(DATA), play)
     settings = Settings.load()
     while True:
+        queue.reap(conn)  # a match cut off by the last restart
         ladder.top_up(conn, Ratings(settings), settings, Random())
         if not worker.step():
             time.sleep(1)

@@ -76,7 +76,7 @@
 		{/if}
 		<line class="axis" x1="0" x2={W} y1={H / 2} y2={H / 2} />
 		<path class="line" d={path} />
-		{#each lanes as lane, i (lane.label)}
+		{#each lanes as lane, i (`${lane.seat}-${lane.kind}`)}
 			{#each marks.filter((m) => m.seat === lane.seat && m.kind === lane.kind) as m (m.turn)}
 				<rect
 					class="mark {lane.kind} seat{lane.seat}"
@@ -92,7 +92,7 @@
 		<line class="cursor" x1={x(turn)} x2={x(turn)} y1="0" y2={H + LANE * lanes.length} />
 	</svg>
 	<ul class="legend">
-		{#each lanes as lane (lane.label)}
+		{#each lanes as lane (`${lane.seat}-${lane.kind}`)}
 			<li><span class="swatch {lane.kind} seat{lane.seat}"></span>{lane.label}</li>
 		{/each}
 	</ul>
