@@ -456,7 +456,7 @@ def rebuild_ratings(results: Iterable[Result]) -> dict[VersionId, Rating]:
 ```
 Incremental live updates and a full rebuild must agree exactly (test). This lets us change the rating system later, rebuild, and compare.
 
-> **Open bug (found in Phase 7 review, 2026-11-26):** `rated_results` replays in `results.rowid` order, and `rowid` is the match id. The live table applies results in the order matches *finish*, and the queue claims by priority first, so a placement match can finish before an older ranked one. Then a rebuild (and the bot-page rating history) can differ from the stored ratings. The existing test passes because its matches happen to finish in id order. The fix needs a recorded application order in `results`, which is a schema change: ask before making it.
+> **Fixed 2026-11-26 (found in the Phase 7 review):** rebuilds used to replay results by match id, but the queue plays higher priority first, so a newer match can be rated before an older one. `results.seq` (migration 003) now records the order ratings were applied in, a trigger refuses a result without it, and the fold replays by it. Results recorded before the migration were ordered by `finished_at`, then match id. A test reproduces the out-of-order case.
 
 **New versions:** start from the parent version's μ with σ reset to the prior σ. That converges faster than starting from scratch and stays honest because σ is wide. *(Decision to confirm in ADR-003.)*
 

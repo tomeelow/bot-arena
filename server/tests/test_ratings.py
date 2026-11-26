@@ -1,11 +1,13 @@
 """Ratings are derived: the live table must equal a rebuild from results, exactly."""
 
 import plays
+from arena.runner import Result
 from arena_server import bots, queue
 from arena_server.ladder import schedule
 from arena_server.ratings import Rating, Ratings, rebuild, stored
 from arena_server.settings import Settings
 from arena_server.worker import Worker
+from helpers import must_claim
 
 RATINGS = Ratings(Settings.load())
 
@@ -73,3 +75,17 @@ def test_stronger_than_is_not_the_same_as_wins_the_next_game():
     assert RATINGS.p_stronger(a, b) + RATINGS.p_stronger(b, a) == 1
     assert 0.5 < RATINGS.p_win(a, b) < RATINGS.p_stronger(a, b)
     assert RATINGS.p_stronger(a, a) == 0.5
+
+
+def test_a_rebuild_replays_results_in_the_order_they_were_rated_not_by_match_id(db):
+    """The queue plays higher priority first, so a newer match can finish before an older one."""
+    pair = (bots.builtin_version(db, "random"), bots.builtin_version(db, "greedy"))
+    older = queue.enqueue(db, "ranked", pair, seed=1)
+    newer = queue.enqueue(db, "placement", pair, seed=2, priority=5)
+    for match, winner in ((newer, 1), (older, 0)):
+        claim = must_claim(db, "w")
+        assert claim.match_id == match
+        assert queue.finish(
+            db, match, "w", Result(winner, "core_destroyed", 9), "sha256:x", RATINGS
+        )
+    assert stored(db) == rebuild(db, RATINGS)

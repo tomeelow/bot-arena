@@ -89,8 +89,8 @@ def finish(
         if updated != 1:
             return False
         conn.execute(
-            """INSERT INTO results (match_id, winner_seat, end_reason, turns, replay_sha256)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO results (match_id, winner_seat, end_reason, turns, replay_sha256, seq)
+               VALUES (?, ?, ?, ?, ?, (SELECT coalesce(max(seq), 0) + 1 FROM results))""",
             (match_id, result.winner, result.reason, result.turns, replay),
         )
         rating_table.apply(conn, match_id, ratings)

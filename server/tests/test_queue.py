@@ -1,11 +1,13 @@
 """The queue: atomic claims, results only under a live lease, and recovery from dead workers."""
 
 import os
+import sqlite3
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import arena_server
 import plays
+import pytest
 from arena.replay import load
 from arena.runner import Result
 from arena_server import bots, queue
@@ -96,3 +98,31 @@ def test_eight_workers_play_five_hundred_matches_exactly_once(tmp_path, db, stor
     assert len(replays) == 500
     for ref in set(replays):
         load(store.path(REPLAYS, ref, REPLAY))  # every stored replay re-simulates to its hash
+
+
+def test_a_result_without_its_rating_order_is_refused(db):
+    match = queue.enqueue(db, "ranked", pair(db), seed=1)
+    with pytest.raises(sqlite3.IntegrityError, match="seq is required"):
+        db.execute(
+            "INSERT INTO results (match_id, winner_seat, end_reason, turns, replay_sha256)"
+            " VALUES (?, 0, 'turn_limit', 5, 'sha256:x')",
+            (match,),
+        )
+
+
+def test_existing_results_get_their_order_from_when_they_finished(tmp_path):
+    db = connect(tmp_path / "old.db")
+    for script in sorted(MIGRATIONS.glob("00[12]_*.sql")):
+        db.executescript(script.read_text())
+    db.execute("PRAGMA user_version = 2")
+    versions = pair(db)
+    first, second = (queue.enqueue(db, "ranked", versions, seed=s) for s in (1, 2))
+    for match, finished in ((second, "2026-01-01 10:00:00"), (first, "2026-01-01 10:00:05")):
+        db.execute(
+            "INSERT INTO results (match_id, winner_seat, end_reason, turns, replay_sha256,"
+            " finished_at) VALUES (?, 0, 'turn_limit', 5, 'sha256:x', ?)",
+            (match, finished),
+        )
+    migrate(db)
+    order = db.execute("SELECT match_id FROM results ORDER BY seq").fetchall()
+    assert [r[0] for r in order] == [second, first]
