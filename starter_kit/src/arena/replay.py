@@ -75,7 +75,12 @@ class Replay:
 
 
 def load(path: Path) -> Replay:
-    data = json.loads(gzip.decompress(path.read_bytes()))
+    return decode(path.read_bytes())
+
+
+def decode(raw: bytes) -> Replay:
+    """A replay from its bytes, re-simulated and checked against its final hash."""
+    data = json.loads(gzip.decompress(raw))
     if data.get("format") != FORMAT:
         raise ReplayError(f"unsupported replay format {data.get('format')!r}")
     if data["engine_version"] != ENGINE_VERSION:

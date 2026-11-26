@@ -31,6 +31,7 @@
 		sandbox, on a ranked ladder that says how sure it is about every rating.
 	</p>
 	<p>
+		<a href={resolve('/practice')}>Write a bot in your browser</a> ·
 		<a href={resolve('/rules')}>Read the rules and get the starter kit</a> ·
 		<a href={resolve('/me')}>Upload a bot</a>
 	</p>

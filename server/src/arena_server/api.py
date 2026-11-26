@@ -16,6 +16,7 @@ from pathlib import Path
 from random import Random
 from typing import Annotated, Any
 
+from arena import frames
 from arena.replay import load
 from arena.runner import Result
 from arena_engine import ENGINE_VERSION
@@ -32,7 +33,7 @@ from fastapi import Path as PathParam
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import RedirectResponse
 
-from . import bots, compare, frames, ladder
+from . import bots, compare, ladder
 from .auth import GitHub, GitHubOAuth, Sessions
 from .db import connect, migrate
 from .queue import immediate

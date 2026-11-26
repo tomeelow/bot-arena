@@ -1,15 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { End, Frame, Header, InvalidOrder, Seat } from '../types';
+	import type { End, Frame, Header, Owned, Seat } from '../types';
 	import AdvantageGraph from './AdvantageGraph.svelte';
 	import Board from './Board.svelte';
 	import LogPanel from './LogPanel.svelte';
 	import { advantage, biggestSwing, markers } from './frames';
-
-	interface Owned {
-		logs: [number, string][];
-		invalid: InvalidOrder[];
-	}
 
 	interface Props {
 		header: Header;
@@ -34,7 +29,10 @@
 	const last = $derived(frames.length - 1);
 	const frame = $derived(frames[Math.min(index, last)]);
 	const names = $derived(
-		header.players.map((p) => `${p.owner}/${p.bot} v${p.version}`) as [string, string]
+		header.players.map((p) => `${p.owner}/${p.bot}${p.version ? ` v${p.version}` : ''}`) as [
+			string,
+			string
+		]
 	);
 	const series = $derived(frames.map((f) => advantage(header, f)));
 	const swing = $derived(end ? biggestSwing(series) : null);
@@ -76,7 +74,8 @@
 	}
 
 	function onkeydown(event: KeyboardEvent) {
-		const target = event.target as HTMLElement;
+		// The real target, even inside a shadow root (the practice editor lives in one).
+		const target = (event.composedPath()[0] ?? event.target) as HTMLElement;
 		if (target.closest('input:not([type=range]), textarea, select, [contenteditable]')) return;
 		if (target.closest('button, a') && (event.key === ' ' || event.key === 'Enter')) return;
 		const keys: Record<string, () => void> = {
@@ -119,8 +118,12 @@
 				{#each header.players as p, i (p.seat)}
 					<li class="seat{i}">
 						<span class="dot"></span>
-						<a href="{resolve('/bot')}?id={p.bot_id}">{p.owner}/{p.bot}</a>
-						<small>v{p.version}</small>
+						{#if p.bot_id}
+							<a href="{resolve('/bot')}?id={p.bot_id}">{p.owner}/{p.bot}</a>
+							<small>v{p.version}</small>
+						{:else}
+							{p.owner}/{p.bot}
+						{/if}
 						{#if frame}
 							<dl>
 								<dt>Core</dt>

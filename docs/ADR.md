@@ -290,3 +290,36 @@ Run 1 had two problems:
 
 Real ladder results that calibrate worse than this synthetic one would. So would a fix that meets the τ and convergence targets on fresh seeds without hurting calibration.
 
+
+---
+
+## ADR-009 — Browser practice drives the CLI's match loop from JavaScript
+
+**Status:** accepted · **Date:** 2026-11-26 · **Refines:** ADR-001, ADR-006
+
+### Context
+
+Phase 8 runs practice matches in the browser, and their replays must equal the CLI's for the same seed and bots. The CLI's `run_match` is synchronous: it sends each bot a line, then blocks until the reply arrives or the backstop passes. In a browser the player's bot has to run in its own Web Worker, so a hung bot can be terminated, and Python in one worker can't block waiting on another without extra machinery.
+
+### Decision
+
+- **The match loop has no I/O.** `arena.runner.Match` says what to send each bot and is told what each one replied. `run_match` drives it over channels (local and ranked), and browser practice drives it from JavaScript. The rules, the checks on replies and the record are one piece of code.
+- **There are two workers per practice match.** The host worker runs the engine, `Match` and the built-in opponent (`arena.practice.Practice`). The player worker runs the player's code behind the CLI's harness (`arena.practice.PlayerBot`). The page carries the protocol lines between them and owns the backstop timer. A bot that misses it has its worker terminated and loses on time, with the CLI's wording.
+- **Assets come from our own origin.** The pinned Pyodide runtime and the Python sources are copied into the static build (`web/scripts/practice-assets.mjs`). No CDN is involved, and the page's CSP stays `'self'`.
+- **The editor lives in a shadow root.** CodeMirror then puts its styles in a constructed stylesheet, which the strict CSP allows. In the document it would need an inline `<style>`, which the CSP blocks.
+
+### Alternatives considered
+
+- **Blocking with SharedArrayBuffer and `Atomics.wait`.** This needs cross-origin isolation (COOP/COEP headers), which not every free static host can set, and it keeps a second copy of the loop's timing logic.
+- **JSPI (`run_sync`).** It lets Python await JavaScript synchronously, but browser support is still uneven.
+- **Reimplementing the loop in TypeScript.** That breaks "one engine, one protocol" (CLAUDE.md).
+- **Loading Pyodide from a CDN.** That would mean a third-party script origin in the CSP and a dependency on someone else's uptime.
+
+### Consequences
+
+- `tests/e2e/practice.spec.ts` (Playwright) checks that the downloaded practice replay equals the CLI's for the same seed and bots, ignoring thinking times and the bot's file path. It also checks that a hung bot is stopped while the page keeps responding.
+- The static build carries about 13 MB of Pyodide runtime.
+
+### What would change our mind
+
+Broad JSPI support could let the host call the player synchronously and drop the page relay. A host that can't serve `.wasm` from our origin would push us towards a CDN, with its origin pinned in the CSP.
