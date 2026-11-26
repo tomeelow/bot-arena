@@ -1,0 +1,21 @@
+[Unit]
+Description=Bot Arena scheduler: queues ranked pairings and reaps dead leases
+After=network-online.target
+
+[Service]
+User=arena
+Group=arena
+Environment=ARENA_DATA_DIR=/var/lib/arena
+ExecStart=/opt/arena/venv/bin/python -m arena_server.scheduler
+MemoryMax=150M
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/arena
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

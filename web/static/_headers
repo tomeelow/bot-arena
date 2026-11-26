@@ -1,0 +1,13 @@
+# Response headers on Cloudflare Pages (docs/ADR.md, ADR-010). `vite preview` applies the same
+# rules (src/headers.ts), so the e2e tests run under them. The page CSP itself is a <meta> tag
+# with SvelteKit's script hashes (vite.config.ts); this adds what a meta tag can't carry.
+/*
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+# Practice workers run Pyodide: WebAssembly, and fetches of its files from this origin only.
+/_app/immutable/workers/*
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'

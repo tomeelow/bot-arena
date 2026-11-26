@@ -1,0 +1,28 @@
+# Runs hostile bot code (in jails). No EnvironmentFile and nothing secret in Environment:
+# bubblewrap's init in every jail shows this environment at /proc/1/environ
+# (server/tests/test_deploy.py checks it).
+[Unit]
+Description=Bot Arena worker %i
+After=network-online.target
+
+[Service]
+User=arena
+Group=arena
+Environment=ARENA_DATA_DIR=/var/lib/arena ARENA_VENV=/opt/arena/venv ARENA_SECCOMP=/opt/arena/seccomp.bpf
+ExecStart=/opt/arena/src/deploy/jail-cgroup.sh /opt/arena/venv/bin/python -m arena_server.worker
+# The jails' cgroups live under this unit's, which systemd hands to the arena user.
+Delegate=cpu memory pids
+DelegateSubgroup=main
+# Two bots at their 256 MiB limit plus the worker; a backstop if per-bot limits ever fail.
+MemoryMax=640M
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/arena
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

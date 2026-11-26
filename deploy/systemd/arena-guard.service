@@ -1,0 +1,15 @@
+[Unit]
+Description=Bot Arena budget guard: egress, disk, expiry
+
+[Service]
+Type=oneshot
+User=arena
+Group=arena
+Environment=ARENA_DATA_DIR=/var/lib/arena
+ExecStart=/opt/arena/venv/bin/python -m arena_server.ops guard
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/arena

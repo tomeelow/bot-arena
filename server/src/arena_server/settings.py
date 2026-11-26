@@ -33,6 +33,11 @@ class Settings:
     session_max_age_s: int
     live_poll_s: float
     live_wait_s: float
+    matches_per_day: int
+    egress_month_bytes: int
+    disk_pause_fraction: float
+    logs_keep_days: int
+    live_keep_days: int
 
     @classmethod
     def load(cls) -> Settings:

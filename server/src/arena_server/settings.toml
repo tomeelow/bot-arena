@@ -40,3 +40,12 @@ viewers_total = 200
 session_max_age_s = 2592000     # 30 days
 live_poll_s = 0.1               # how often a viewer's socket checks for new turns
 live_wait_s = 600               # how long a viewer waits for a queued match to start
+
+[budget]
+# Phase 9 capacity budget for the Google Cloud e2-micro (ADR-010). Every number here is a cap
+# on something that would otherwise grow without bound; deploy/RUNBOOK.md explains each one.
+matches_per_day = 1000            # bounded by backup storage (5 GB free), not CPU; see ADR-010
+egress_month_bytes = 800000000    # free tier is 1 GB/month out; past this the site answers 503
+disk_pause_fraction = 0.85        # the guard pauses the ladder when the disk is this full
+logs_keep_days = 14               # bot logs (owner-only debug output)
+live_keep_days = 7                # live frame files; after this, frames come from the replay

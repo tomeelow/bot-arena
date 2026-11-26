@@ -7,6 +7,7 @@ from .queue import immediate
 from .store import CODE, PY, Store
 
 ARENA_ACCOUNT = "arena"  # owns the built-in bots, which play on the ladder as anchors
+ANCHORS = ("random", "greedy", "rush", "turtle", "scout")
 
 
 def ensure_user(conn: sqlite3.Connection, handle: str, github_id: int | None = None) -> int:
@@ -42,6 +43,11 @@ def submit_version(conn: sqlite3.Connection, store: Store, bot_id: int, code: by
     """Store the code and add a pending version. Nothing here reads or runs the code."""
     ref = store.put(CODE, code, PY)
     return _add_version(conn, bot_id, ref, "pending")
+
+
+def ensure_anchors(conn: sqlite3.Connection) -> list[int]:
+    """The built-in bots every new version is placed against (ladder.place)."""
+    return [builtin_version(conn, name) for name in ANCHORS]
 
 
 def builtin_version(conn: sqlite3.Connection, name: str) -> int:

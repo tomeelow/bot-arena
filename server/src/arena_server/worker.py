@@ -51,7 +51,9 @@ class Worker:
 
     def step(self) -> bool:
         """Do one piece of work: validate a pending version, else play a queued match.
-        Returns False when there was nothing to do."""
+        Returns False when there was nothing to do, or the kill switch is set."""
+        if self.store.paused:
+            return False
         if pending := bots.pending(self.conn):
             self.validate(pending[0]["id"], pending[0]["code"])
             return True

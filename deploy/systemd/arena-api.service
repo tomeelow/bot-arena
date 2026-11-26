@@ -1,0 +1,23 @@
+[Unit]
+Description=Bot Arena API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=arena
+Group=arena
+EnvironmentFile=/etc/arena/api.env
+Environment=ARENA_DATA_DIR=/var/lib/arena
+ExecStart=/opt/arena/venv/bin/uvicorn --factory arena_server.api:app_from_env --host 127.0.0.1 --port 8000 --no-server-header
+MemoryMax=250M
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/arena
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

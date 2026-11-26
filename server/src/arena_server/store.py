@@ -37,6 +37,14 @@ class Store:
         """Bot logs of a match. Private: only each bot's owner may read their seat's."""
         return self.root / "logs" / f"{match_id}.json"
 
+    @property
+    def paused(self) -> bool:
+        """The kill switch (`python -m arena_server.ops pause`): while it is set no bot code
+        runs and nothing new is scheduled. Queued matches stay queued."""
+        return (self.root / PAUSED).exists()
+
 
 CODE, REPLAYS = "code", "replays"
+PAUSED = "PAUSED"
+EGRESS_CAPPED = "EGRESS_CAPPED"  # Caddy answers 503 while this exists (deploy/Caddyfile)
 PY, REPLAY = ".py", ".json.gz"
