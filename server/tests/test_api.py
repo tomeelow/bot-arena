@@ -303,3 +303,22 @@ def test_a_new_bot_and_an_empty_ladder_are_empty_not_errors(app):
     assert ada.get("/api/ladder").json() == []
     login(ada, "code-ada")
     assert ada.get(f"/api/bots/{new_bot(ada)}/history").json() == []
+
+
+def test_stats_are_public_and_aggregate(app, data):
+    played_match(data)
+    stats = client(app).get("/api/stats").json()
+    assert stats["submitted_bots"] == 1
+    assert sum(d["count"] for d in stats["matches_per_day"]) == 1
+
+
+def test_the_health_page_is_for_admins_only(data):
+    app = create_app(data, FakeGitHub(), b"s" * 32, SETTINGS, admins=frozenset({101}))
+    played_match(data)
+    ada, bob, anon = client(app), client(app), client(app)
+    login(ada, "code-ada")
+    login(bob, "code-bob")
+    assert anon.get("/api/admin/health").status_code == 401
+    assert bob.get("/api/admin/health").status_code == 403
+    health = ada.get("/api/admin/health").json()
+    assert health["matches_finished"] == 1 and health["platform_errors"] == 0

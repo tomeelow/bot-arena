@@ -13,6 +13,9 @@ from arena_engine import ENGINE_VERSION
 from . import ratings as rating_table
 from .ratings import Ratings
 
+# Match start and end times keep milliseconds: durations are measured from them (metrics.py).
+NOW = "strftime('%Y-%m-%d %H:%M:%f', 'now')"
+
 
 @contextmanager
 def immediate(conn: sqlite3.Connection) -> Iterator[None]:
@@ -46,7 +49,8 @@ def enqueue(
 def claim(conn: sqlite3.Connection, worker_id: str, lease_s: float) -> Claim | None:
     with immediate(conn):
         row = conn.execute(
-            """UPDATE matches SET status = 'running', worker_id = ?, lease_until = ?
+            f"""UPDATE matches SET status = 'running', worker_id = ?, lease_until = ?,
+                   started_at = {NOW}
                WHERE id = (SELECT id FROM matches WHERE status = 'queued'
                            ORDER BY priority DESC, id LIMIT 1)
                RETURNING id, seed, engine_version""",
@@ -82,7 +86,7 @@ def finish(
     result, so it can never move a rating."""
     with immediate(conn):
         updated = conn.execute(
-            """UPDATE matches SET status = 'done', finished_at = datetime('now')
+            f"""UPDATE matches SET status = 'done', finished_at = {NOW}
                WHERE id = ? AND status = 'running' AND worker_id = ? AND lease_until >= ?""",
             (match_id, worker_id, time.time()),
         ).rowcount
@@ -100,7 +104,7 @@ def finish(
 def void(conn: sqlite3.Connection, match_id: int, reason: str) -> None:
     with immediate(conn):
         conn.execute(
-            """UPDATE matches SET status = 'void', void_reason = ?, finished_at = datetime('now')
+            f"""UPDATE matches SET status = 'void', void_reason = ?, finished_at = {NOW}
                WHERE id = ? AND status IN ('queued', 'running')""",
             (reason, match_id),
         )
@@ -119,8 +123,8 @@ def reap(conn: sqlite3.Connection, now: float | None = None) -> list[int]:
         requeued = []
         for m in expired:
             conn.execute(
-                """UPDATE matches SET status = 'void', void_reason = 'lease expired',
-                   finished_at = datetime('now') WHERE id = ?""",
+                f"""UPDATE matches SET status = 'void', void_reason = 'lease expired',
+                   finished_at = {NOW} WHERE id = ?""",
                 (m["id"],),
             )
             players = conn.execute(

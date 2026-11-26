@@ -83,7 +83,9 @@ def main() -> None:
     migrate(conn)
     if not conn.execute("SELECT 1 FROM users WHERE handle = 'sparring'").fetchone():
         seed_sparring_partners(conn)
-    app = create_app(DATA, DevGitHub(), b"dev-only-session-secret-not-for-production")
+    app = create_app(
+        DATA, DevGitHub(), b"dev-only-session-secret-not-for-production", admins=frozenset({1})
+    )  # the fake login (github id 1) can open /admin
     threading.Thread(target=background, args=(args.turn_delay,), daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=8000)
 

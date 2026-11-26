@@ -73,6 +73,9 @@ Then fill in the three env files. `.env.example` lists every variable, and which
 | `/etc/arena/api.env` | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `SESSION_SECRET` |
 | `/etc/arena/caddy.env` | `ARENA_HOST=bot-arena.duckdns.org`, `ARENA_ORIGIN_SECRET` |
 | `/etc/arena/backup.env` | `ARENA_BACKUP_BUCKET=<bucket>` |
+| `/etc/arena/alerts.env` | `ARENA_HEALTHCHECK_URL=<ping url>`, optional (see Alerts) |
+
+Also add `ARENA_ADMIN_GITHUB_IDS=<your GitHub user id>` to `api.env`, so you can open `/admin`. To find your id, run `curl -s https://api.github.com/users/<you>`.
 
 Generate each secret with `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`. Then deploy:
 
@@ -163,6 +166,33 @@ ops resume
 **If the egress cap trips early,** find what's sending: `journalctl -u caddy`, and `ops status` for the count. You can lower the cap, but raising it past the free 1 GB means a bill. That needs an ADR, not a config change.
 
 **Once a month,** check Google Cloud Billing → Reports and Cloudflare's usage page, and confirm both show €0.
+
+## Alerts and the health page
+
+`/admin` shows the platform's health to admins: errors, queue wait, match durations, disk and end reasons. `/stats` is the public usage page.
+
+Alerts reach you by email through Healthchecks.io (ADR-011):
+
+1. Create a free Hobbyist account and a check. Set the period to 5 minutes and the grace time to 10 minutes.
+2. Put the check's ping URL in `/etc/arena/alerts.env` as `ARENA_HEALTHCHECK_URL`.
+3. Wait for the next `arena-guard` run, then look at the check's log.
+
+The check fails, and you get an email, when any of these happens:
+
+| Alert | Threshold |
+|---|---|
+| A platform error | Any in the last 24 hours |
+| Disk full | 80% (`alert_disk_fraction`) |
+| Queue wait | A match waited more than an hour (`alert_queue_wait_s`) |
+| Ladder paused | The kill switch, or the guard's disk pause |
+| Egress cap | This month's budget is spent |
+| No ping at all | The VM, the timer or the guard is down |
+
+The failure's body lists the reasons, and so does the guard's journal:
+
+```bash
+journalctl -u arena-guard
+```
 
 ## Backups and the restore drill
 

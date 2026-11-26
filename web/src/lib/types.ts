@@ -136,3 +136,45 @@ export interface Owned {
 	logs: [number, string][];
 	invalid: InvalidOrder[];
 }
+
+export interface DayCount {
+	day: string;
+	count: number;
+}
+
+/** Median and 95th percentile of a sample of n values; null when n is 0. */
+export interface Spread {
+	n: number;
+	p50: number | null;
+	p95: number | null;
+}
+
+export interface UsageStats {
+	submitted_bots: number;
+	active_players_7d: number;
+	versions_per_day: DayCount[];
+	matches_per_day: DayCount[];
+	converged_versions: number;
+	unconverged_versions: number;
+	games_to_converge: Spread;
+	hours_to_converge: Spread;
+	seconds_to_first_match: Spread;
+	rated_matches: number;
+	sandbox_outcomes: Record<string, number>;
+}
+
+export interface HealthReport {
+	window_h: number;
+	alerts: string[];
+	matches_finished: number;
+	platform_errors: number;
+	lease_expired: number;
+	platform_error_rate: number;
+	end_reasons: Record<string, number>;
+	match_seconds: Spread;
+	queue_depth: number;
+	oldest_queued_s: number | null;
+	queue_wait_s: Spread;
+	worker_utilisation: number | null;
+	disk_used_fraction: number;
+}

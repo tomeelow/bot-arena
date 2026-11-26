@@ -133,3 +133,46 @@ class RatingPoint(BaseModel):
 class InvalidOrderView(BaseModel):
     turn: int
     reason: str
+
+
+class DayCount(BaseModel):
+    day: str  # YYYY-MM-DD, UTC
+    count: int
+
+
+class Spread(BaseModel):
+    """The median and 95th percentile of a sample, and how many values it had."""
+
+    n: int
+    p50: float | None
+    p95: float | None
+
+
+class UsageStats(BaseModel):
+    submitted_bots: int
+    active_players_7d: int
+    versions_per_day: list[DayCount]
+    matches_per_day: list[DayCount]
+    converged_versions: int
+    unconverged_versions: int
+    games_to_converge: Spread
+    hours_to_converge: Spread
+    seconds_to_first_match: Spread
+    rated_matches: int  # in the last stats_days, which sandbox_outcomes are shares of
+    sandbox_outcomes: dict[str, float]
+
+
+class HealthReport(BaseModel):
+    window_h: int
+    alerts: list[str]
+    matches_finished: int
+    platform_errors: int
+    lease_expired: int
+    platform_error_rate: float
+    end_reasons: dict[str, int]
+    match_seconds: Spread
+    queue_depth: int
+    oldest_queued_s: float | None
+    queue_wait_s: Spread
+    worker_utilisation: float | None
+    disk_used_fraction: float
