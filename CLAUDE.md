@@ -51,7 +51,7 @@ The phased plan, with status and exit criteria, is in `docs/implementation_plan.
 ## Code quality
 
 - **`make verify` is the single entry point:** lint, format check, typecheck and tests for both Python and the frontend. Run it before calling anything done, and say what it showed.
-- **Review with CodeRabbit before opening a PR.** After a feature passes `make verify`, run `/coderabbit:code-review --base main`. Fix critical and major findings, re-run the review once, then list what's left. If the CLI is rate-limited, open the PR and comment `@coderabbitai review` on it instead (free on public repos).
+- **Review with CodeRabbit before opening a PR.** After a feature passes `make verify`, run `/coderabbit:code-review --base main --include-untracked`. Fix critical and major findings, re-run the review once, then list what's left. If the CLI is rate-limited, open the PR and comment `@coderabbitai review` on it instead (free on public repos).
 - **Python:** type hints on public functions; `ruff` for lint, `ruff format` for formatting; `pyright` for type checking; `pytest` and `hypothesis` for tests.
 - **TypeScript (frontend):** strict mode; `tsc --noEmit` is part of `make verify`.
 - **Dependencies:** pin them. Python uses a `uv` workspace; the frontend uses npm with a committed lockfile. The engine has **zero** runtime dependencies so it loads instantly in Pyodide and in the sandbox.
