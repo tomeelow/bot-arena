@@ -124,6 +124,7 @@
 		display: block;
 		inline-size: 100%;
 		block-size: auto;
+		border: 2px solid var(--line);
 		border-radius: 4px;
 	}
 </style>

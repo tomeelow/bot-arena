@@ -463,3 +463,30 @@ The plan sketched a per-cell action map over grid channels, a small convolutiona
 ### What would change our mind
 
 The boss plateauing below the best human bots for good: then a richer action space (per-unit targets) is worth the compute, starting with behaviour cloning. Also numpy being added to the jail for players' own sake, which would make larger networks cheap to ship.
+
+## ADR-013 — The Arcade visual theme: dark only, with self-hosted fonts
+
+**Status:** accepted · **Date:** 2026-11-27
+
+### Context
+
+The frontend shipped with system fonts and a neutral palette that followed the OS between light and dark. We compared a dozen themes as static mockups and picked "Arcade": a dark plum ground, Bungee capitals for page titles and big figures, Chivo for reading, hard zero-blur offsets on anything you can press, ember as the lead colour and acid yellow as the answer. Two constraints shape how it ships:
+
+- **Every request stays on our origin.** The CSP has `font-src 'self'`, and `tests/e2e/privacy.spec.ts` fails if any page talks to another origin, so Google Fonts' CDN is out.
+- **The theme only works dark.** Its contrast and the colour split on titles depend on the dark ground; a light version would be a different design.
+
+### Decision
+
+- **Dark only.** `color-scheme: dark`, one set of tokens in `web/src/app.css`. Every colour and font is a token there; components only use tokens.
+- **Fonts from `@fontsource/bungee` and `@fontsource-variable/chivo`,** pinned (5.3.0, SIL OFL 1.1). Vite bundles their woff2 files into the build, so they are served from our origin like any other asset. No third-party request, no CSP change.
+- **Big figures use Bungee, not a pixel face.** The mockups tried Silkscreen for counters; it read poorly at the sizes we use, so it was dropped.
+
+### Alternatives considered
+
+- **Vendored woff2 files in `web/static/fonts/`.** No npm dependency, but binary files to keep up to date by hand. The packages give the same result with a version in the lockfile.
+- **Google Fonts CDN.** Breaks the privacy test and the CSP, and tells a third party about every visit.
+- **Keeping a light variant.** Doubles the design work for a theme whose character is the dark ground.
+
+### What would change our mind
+
+Players asking for a light mode, or an accessibility problem with the dark ground that token changes can't fix.

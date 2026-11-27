@@ -10,72 +10,98 @@
 	const pct = (v: number) => ((v - lo) / (hi - lo || 1)) * 100;
 </script>
 
-<table>
-	<thead>
-		<tr>
-			<th class="num">#</th>
-			<th>Bot</th>
-			<th class="num" title="μ − 3σ: what the ladder is sorted by">Rank score</th>
-			<th>Skill, 95% range (μ ± 2σ)</th>
-			<th class="num" title="P(this bot's skill is higher than the next one down)">
-				Stronger than next
-			</th>
-			<th class="num">Games</th>
-		</tr>
-	</thead>
-	<tbody>
-		{#each rows as r (r.version_id)}
+<div class="scroll">
+	<table>
+		<thead>
 			<tr>
-				<td class="num">{r.rank}</td>
-				<td>
-					<a href="{resolve('/bot')}?id={r.bot_id}">{r.owner}/{r.bot}</a>
-					{#if r.provisional}<span class="badge" title="σ still above the threshold">
-							provisional
-						</span>{/if}
-				</td>
-				<td class="num">{r.score.toFixed(1)}</td>
-				<td>
-					<span class="range" title="{r.low.toFixed(1)} to {r.high.toFixed(1)}">
-						<span
-							class="bar"
-							style:inset-inline-start="{pct(r.low)}%"
-							style:inline-size="{pct(r.high) - pct(r.low)}%"
-						></span>
-						<span class="mu" style:inset-inline-start="{pct(r.mu)}%"></span>
-					</span>
-					<small class="muted">{r.mu.toFixed(1)} ± {(2 * r.sigma).toFixed(1)}</small>
-				</td>
-				<td class="num">{r.p_above_next === null ? '—' : probability(r.p_above_next)}</td>
-				<td class="num">{r.games}</td>
+				<th class="num">#</th>
+				<th>Bot</th>
+				<th class="num" title="μ − 3σ: what the ladder is sorted by">Rank score</th>
+				<th>Skill, 95% range (μ ± 2σ)</th>
+				<th class="num" title="P(this bot's skill is higher than the next one down)">
+					Stronger than next
+				</th>
+				<th class="num">Games</th>
 			</tr>
-		{:else}
-			<tr><td colspan="6" class="muted">No rated bots yet.</td></tr>
-		{/each}
-	</tbody>
-</table>
+		</thead>
+		<tbody>
+			{#each rows as r (r.version_id)}
+				<tr class:lead={r.rank === 1}>
+					<td class="num rank">{r.rank}</td>
+					<td>
+						<a href="{resolve('/bot')}?id={r.bot_id}">{r.owner}/{r.bot}</a>
+						{#if r.provisional}<span class="badge" title="σ still above the threshold">
+								provisional
+							</span>{/if}
+					</td>
+					<td class="num">{r.score.toFixed(1)}</td>
+					<td>
+						<span class="range" title="{r.low.toFixed(1)} to {r.high.toFixed(1)}">
+							<span
+								class="bar"
+								style:inset-inline-start="{pct(r.low)}%"
+								style:inline-size="{pct(r.high) - pct(r.low)}%"
+							></span>
+							<span class="mu" style:inset-inline-start="{pct(r.mu)}%"></span>
+						</span>
+						<small class="muted">{r.mu.toFixed(1)} ± {(2 * r.sigma).toFixed(1)}</small>
+					</td>
+					<td class="num">{r.p_above_next === null ? '—' : probability(r.p_above_next)}</td>
+					<td class="num">{r.games}</td>
+				</tr>
+			{:else}
+				<tr><td colspan="6" class="muted">No rated bots yet.</td></tr>
+			{/each}
+		</tbody>
+	</table>
+</div>
 
 <style>
+	/* a wide table scrolls inside its own box on a narrow screen, never the page */
+	.scroll {
+		overflow-x: auto;
+	}
+	.rank {
+		font-family: var(--display);
+	}
+	td small {
+		white-space: nowrap;
+	}
+	.lead td {
+		background: var(--accent);
+		color: var(--accent-ink);
+	}
+	.lead a,
+	.lead .muted,
+	.lead small {
+		color: var(--accent-ink);
+	}
+	.lead .badge {
+		color: var(--accent-ink);
+		border-color: var(--accent-ink);
+	}
+	.lead .range {
+		background: var(--accent-ink);
+	}
 	.range {
 		position: relative;
 		display: inline-block;
 		inline-size: 10rem;
 		block-size: 0.6rem;
-		background: var(--surface);
-		border-radius: 3px;
+		background: var(--surface-2);
 		vertical-align: middle;
 		margin-inline-end: 0.5rem;
 	}
 	.bar {
 		position: absolute;
 		inset-block: 0;
-		background: var(--accent);
-		opacity: 0.35;
-		border-radius: 3px;
+		background: var(--accent-2);
+		opacity: 0.5;
 	}
 	.mu {
 		position: absolute;
-		inset-block: -2px;
+		inset-block: -3px;
 		inline-size: 2px;
-		background: var(--accent);
+		background: var(--accent-2);
 	}
 </style>

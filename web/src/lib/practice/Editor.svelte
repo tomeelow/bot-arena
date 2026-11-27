@@ -70,7 +70,7 @@
 <style>
 	.editor {
 		block-size: 32rem;
-		border: 1px solid var(--line);
+		border: 2px solid var(--line);
 		border-radius: 4px;
 		overflow: hidden;
 	}

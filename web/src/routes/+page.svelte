@@ -30,10 +30,10 @@
 		and both sides move at the same moment. Upload your bot and it plays everyone else's, in a
 		sandbox, on a ranked ladder that says how sure it is about every rating.
 	</p>
-	<p>
-		<a href={resolve('/practice')}>Write a bot in your browser</a> ·
-		<a href={resolve('/rules')}>Read the rules and get the starter kit</a> ·
-		<a href={resolve('/me')}>Upload a bot</a>
+	<p class="actions">
+		<a class="button primary" href={resolve('/practice')}>Write a bot in your browser</a>
+		<a class="button" href={resolve('/rules')}>Read the rules and get the starter kit</a>
+		<a class="button" href={resolve('/me')}>Upload a bot</a>
 	</p>
 </section>
 
@@ -55,7 +55,22 @@
 
 <style>
 	.intro {
-		max-inline-size: 44rem;
+		margin-block-end: 3rem;
+	}
+	.intro h1 {
+		font-size: clamp(2.5rem, 4vw + 1rem, 4.5rem);
+		margin-block: 1rem 1.5rem;
+	}
+	.intro > p:not(.actions) {
+		font-size: 1.1875rem;
+		color: var(--ink-2);
+		max-inline-size: 40rem;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem 1.25rem;
+		margin-block-start: 2rem;
 	}
 	.columns {
 		display: grid;
@@ -64,7 +79,7 @@
 	}
 	@media (width < 56rem) {
 		.columns {
-			grid-template-columns: 1fr;
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 </style>
