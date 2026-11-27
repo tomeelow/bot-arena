@@ -702,7 +702,7 @@ Boss vs each scripted baseline · P(boss stronger than the best human bot) · **
 - [x] Training reproducible from config and seed (remaining nondeterminism documented): `rl/tests/test_train.py`, model card
 - [x] Boss beats every scripted baseline with a 95% CI lower bound above 50% (lowest: turtle, 72.9%, over 400 held-out games; model card)
 - [ ] Inference p99 within the turn budget in the production sandbox; bundle within the upload cap. Measured in the ranked jail's image (`scripts/boss_timing.py`): p99 1 ms of 100, bundle 152 KB of 2 MB. Still to repeat on the live VM.
-- [ ] Uploaded through the normal pipeline; model card published. `ops upload-boss` and `docs/boss_model_card.md` are ready; the upload to the live server and the GitHub release with the weights are still to do.
+- [ ] Uploaded through the normal pipeline; model card published. The model card and weights are published as release [`boss-v1`](https://github.com/tomeelow/bot-arena/releases/tag/boss-v1). Still to do: `ops upload-boss` on the live server.
 
 ---
 
