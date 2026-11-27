@@ -6,6 +6,8 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { session } from '#lib/session.svelte.js';
+	import Tour from '#lib/tour/Tour.svelte';
+	import { tour } from '#lib/tour/state.svelte.js';
 	import type { LayoutProps } from './$types';
 
 	let { children }: LayoutProps = $props();
@@ -32,14 +34,14 @@
 <header>
 	<nav aria-label="Main">
 		<a class="brand" href={resolve('/')}>Bot Arena</a>
-		<ul>
+		<ul data-tour="nav">
 			{#each links as [href, label] (href)}
 				<li>
 					<a {href} aria-current={page.url.pathname === href ? 'page' : undefined}>{label}</a>
 				</li>
 			{/each}
 		</ul>
-		<span class="account">
+		<span class="account" data-tour="account">
 			{#if session.account}
 				{session.account.handle}
 				<button type="button" class="link" onclick={() => session.logout()}>Log out</button>
@@ -55,9 +57,12 @@
 </main>
 
 <footer class="muted">
-	Engine 1.0.0 · <a href="https://github.com/tomeelow/bot-arena">Source</a> · No trackers: we keep a GitHub
-	id and handle, nothing else.
+	Engine 1.0.0 · <a href="https://github.com/tomeelow/bot-arena">Source</a> ·
+	<button type="button" class="link" onclick={() => tour.start()}>Take the tour</button> · No trackers:
+	we keep a GitHub id and handle, nothing else.
 </footer>
+
+<Tour />
 
 <style>
 	header {

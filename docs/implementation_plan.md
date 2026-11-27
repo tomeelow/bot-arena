@@ -586,6 +586,7 @@ Names, descriptions and logs render as text. Strict CSP with no inline scripts.
 - Practice replays open in the same viewer, can be downloaded, and replay identically with the local CLI.
 - Only the user's own code and our built-in bots (later the boss too) ever run in the browser.
 - A "Submit to ladder" button hands the current code to the upload flow.
+- An onboarding tour, offered once on a first visit to the home page and restartable from the footer, walks a newcomer from the landing page through a first practice match to the upload step (`web/src/lib/tour/`, `web/tests/e2e/tour.spec.ts`). Whether it got a stranger through is what the open criterion below finds out.
 
 **Exit criteria**
 - [x] Practice page: editor, opponent picker, run, watch (`/practice`; ADR-009)

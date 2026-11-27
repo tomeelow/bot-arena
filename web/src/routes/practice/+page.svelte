@@ -96,7 +96,7 @@
 </p>
 
 <div class="layout">
-	<section aria-label="Your bot">
+	<section aria-label="Your bot" data-tour="editor">
 		<Editor bind:value={code} label="Your bot's Python code" />
 		<p class="row">
 			<label>Open a file <input type="file" accept=".py,text/x-python" onchange={open} /></label>
@@ -107,6 +107,7 @@
 	<section aria-label="Match">
 		<form
 			class="setup"
+			data-tour="setup"
 			onsubmit={(e) => {
 				e.preventDefault();
 				play();
@@ -129,12 +130,12 @@
 				Seed <input type="number" min="0" bind:value={seed} />
 			</label>
 			<button type="button" class="link" onclick={() => (seed = randomSeed())}>New seed</button>
-			<button type="submit">
+			<button type="submit" data-tour="run">
 				{run && run.status !== 'done' && run.status !== 'failed' ? 'Restart' : 'Run'}
 			</button>
 		</form>
 
-		<p role="status" class="status" aria-label="Practice status">
+		<p role="status" class="status" aria-label="Practice status" data-tour="status">
 			{#if !run}
 				Press Run to play. The first run loads Python, which takes a few seconds.
 			{:else if run.status === 'loading'}

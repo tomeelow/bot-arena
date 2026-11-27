@@ -25,12 +25,14 @@
 	--board-wall: oklch(38% 0.055 312);
 	--board-fog: oklch(8% 0.02 315 / 0.72);
 	--board-crystal: var(--crt-c);
+	--scrim: oklch(8% 0.02 315 / 0.72);
 	--display: 'Bungee', Impact, sans-serif;
 	--body: 'Chivo Variable', ui-sans-serif, system-ui, sans-serif;
 	--mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 	--press: 4px 4px 0 var(--accent-2);
 	--press-up: 6px 6px 0 var(--accent-2);
 	--press-down: 1px 1px 0 var(--accent-2);
+	--glide: cubic-bezier(0.2, 0.8, 0.2, 1);
 	accent-color: var(--accent);
 	background: var(--bg);
 	color: var(--ink);
