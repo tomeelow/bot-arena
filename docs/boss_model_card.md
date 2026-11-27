@@ -2,7 +2,7 @@
 
 **Bundle:** `boss.py`, 152,108 bytes, `sha256:822c8092ab1fb12932390d549c078efe884b3b905f9a5ef6a4bdc5bdab10af9b` · **Weights:** `final.npz`, `sha256:401986010c8646e9b1f25ea6679e70dd4d4d0e8cec0c5e0a25e978f35d951637` · **Engine version:** 1.0.0 · **Date:** 2026-11-26
 
-The weights are not in the repository. They ship as GitHub release assets next to this card (CLAUDE.md). Ladder rating: not yet published (the boss isn't on the live ladder yet).
+The weights are not in the repository. They ship as assets of the GitHub release [`boss-v1`](https://github.com/tomeelow/bot-arena/releases/tag/boss-v1), with a copy of this card and a `SHA256SUMS` file (CLAUDE.md). Ladder rating: not yet published (the boss isn't on the live ladder yet).
 
 ## What it is
 
