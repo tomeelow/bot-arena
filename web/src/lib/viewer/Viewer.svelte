@@ -106,7 +106,7 @@
 
 <div class="viewer">
 	<div class="top">
-		<div class="board">
+		<div class="board" data-tour="viewer">
 			{#if frame}
 				<Board {header} {frame} vision={seat} />
 			{:else}
@@ -137,7 +137,7 @@
 					</li>
 				{/each}
 			</ol>
-			<fieldset>
+			<fieldset data-tour="vision">
 				<legend>Vision <kbd>v</kbd></legend>
 				<label><input type="radio" bind:group={vision} value="all" /> Everything</label>
 				{#each names as name, i (i)}
