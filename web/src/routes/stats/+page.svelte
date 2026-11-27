@@ -125,13 +125,23 @@
 		gap: 1rem 3rem;
 		margin: 0;
 	}
+	.figures > div {
+		padding: 1rem 1.25rem;
+		background: var(--surface);
+		border: 2px solid var(--line);
+		border-radius: 4px;
+	}
 	dt {
 		color: var(--muted);
-		font-size: 0.85rem;
+		font-size: 0.8125rem;
+		font-weight: 700;
 	}
 	dd {
 		margin: 0;
-		font-size: 2rem;
+		font-family: var(--display);
+		font-size: 2.5rem;
+		line-height: 1.1;
+		color: var(--accent-2);
 		font-variant-numeric: tabular-nums;
 	}
 </style>

@@ -157,7 +157,7 @@
 	</div>
 
 	<div class="controls">
-		<button type="button" onclick={toggle} aria-keyshortcuts="Space k">
+		<button type="button" class="primary" onclick={toggle} aria-keyshortcuts="Space k">
 			{playing || (live && following) ? 'Pause' : 'Play'}
 		</button>
 		<button
@@ -255,6 +255,19 @@
 		display: grid;
 		gap: 0.75rem;
 	}
+	.players > li {
+		padding: 0.75rem 1rem;
+		background: var(--surface);
+		border: 2px solid var(--line);
+		border-radius: 4px;
+		font-weight: 700;
+	}
+	.players > li.seat0 {
+		border-inline-start: 6px solid var(--seat-0);
+	}
+	.players > li.seat1 {
+		border-inline-start: 6px solid var(--seat-1);
+	}
 	.dot {
 		display: inline-block;
 		inline-size: 0.7rem;
@@ -269,17 +282,26 @@
 	}
 	dl {
 		display: grid;
-		grid-template-columns: repeat(3, auto 1fr);
-		gap: 0 0.5rem;
-		margin: 0.25rem 0 0;
-		font-size: 0.875rem;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-rows: auto auto;
+		grid-auto-flow: column;
+		gap: 0 0.75rem;
+		margin: 0.5rem 0 0;
 		font-variant-numeric: tabular-nums;
 	}
 	dt {
 		color: var(--muted);
+		font-size: 0.8125rem;
+		font-weight: 700;
 	}
 	dd {
 		margin: 0;
+		font-family: var(--display);
+		font-size: 1.75rem;
+		line-height: 1.1;
+	}
+	.seat1 dd {
+		color: var(--accent-2);
 	}
 	fieldset {
 		border: 1px solid var(--line);
@@ -288,8 +310,11 @@
 		gap: 0.25rem;
 	}
 	.live {
-		color: var(--danger);
-		font-weight: 600;
+		padding: 0.1rem 0.5rem;
+		margin-inline-end: 0.4rem;
+		background: var(--accent-2);
+		color: var(--accent-ink);
+		font-weight: 700;
 	}
 	.controls {
 		display: flex;

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import '@fontsource/bungee';
+	import '@fontsource-variable/chivo';
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import { page } from '$app/state';
@@ -24,7 +26,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<meta name="color-scheme" content="light dark" />
+	<meta name="color-scheme" content="dark" />
 </svelte:head>
 
 <header>
@@ -42,7 +44,7 @@
 				{session.account.handle}
 				<button type="button" class="link" onclick={() => session.logout()}>Log out</button>
 			{:else if session.checked}
-				<a href="/auth/github/login" rel="external">Log in with GitHub</a>
+				<a class="button" href="/auth/github/login" rel="external">Log in with GitHub</a>
 			{/if}
 		</span>
 	</nav>
@@ -64,41 +66,58 @@
 	nav {
 		max-inline-size: 72rem;
 		margin-inline: auto;
-		padding: 0.75rem 1rem;
+		padding: 0.9rem 1rem;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.5rem 1.5rem;
+		gap: 0.75rem 2rem;
 	}
 	.brand {
-		font-weight: 700;
+		font-family: var(--display);
+		font-size: 1.2rem;
+		text-transform: uppercase;
 		color: var(--ink);
 		text-decoration: none;
 	}
 	ul {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: 0.5rem 1.25rem;
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
-	[aria-current='page'] {
-		font-weight: 600;
+	ul a {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--ink-2);
 		text-decoration: none;
+	}
+	ul a:hover {
+		color: var(--ink);
+		text-decoration: underline 2px var(--accent-2);
+	}
+	[aria-current='page'] {
+		color: var(--ink);
+		text-decoration: underline 2px var(--accent);
 	}
 	.account {
 		margin-inline-start: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-weight: 700;
 	}
 	main {
 		max-inline-size: 72rem;
 		margin-inline: auto;
-		padding: 1rem;
+		padding: 2rem 1rem;
 	}
 	footer {
 		max-inline-size: 72rem;
-		margin: 3rem auto 1rem;
-		padding: 0 1rem;
-		font-size: 0.85rem;
+		margin: 4rem auto 0;
+		padding: 1.5rem 1rem 2rem;
+		border-block-start: 1px solid var(--line);
+		font-size: 0.875rem;
 	}
 </style>

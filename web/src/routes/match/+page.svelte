@@ -69,8 +69,15 @@
 {/if}
 
 <style>
+	/* the subtitle sits inside the h1, so it must undo the display face and its RGB split */
 	small {
-		font-size: 0.9rem;
-		font-weight: normal;
+		display: block;
+		margin-block-start: 0.5rem;
+		font-family: var(--body);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		text-transform: none;
+		text-shadow: none;
+		color: var(--muted);
 	}
 </style>
